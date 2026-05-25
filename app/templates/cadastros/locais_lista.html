@@ -1,0 +1,18 @@
+{% extends "cadastros/_layout.html" %}
+{% block title %}Locais de estoque — AquaG20{% endblock %}
+
+{% block cadastros_content %}
+<div class="flex items-center justify-between mb-4">
+    <div>
+        <h1 class="text-xl font-semibold text-slate-900">Locais de estoque</h1>
+        <p class="text-sm text-slate-500 mt-1">
+            Onde garrafões do pool podem estar: depósito, cada veículo, indústria, descarte.
+        </p>
+    </div>
+    <a href="{{ url_for('cadastros.novo_local') }}" class="btn-primary">Novo local</a>
+</div>
+
+<div id="tabela-container">
+    {% include "cadastros/_tabela_locais.html" %}
+</div>
+{% endblock %}

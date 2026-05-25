@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{# Layout interno do blueprint pedidos. #}
+
+{% block content %}
+{% set tab_active = "border-aqua-600 text-aqua-700" %}
+{% set tab_idle   = "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300" %}
+{% set ep = request.endpoint or "" %}
+
+<div class="mb-6">
+    <div class="border-b border-slate-200">
+        <nav class="-mb-px flex gap-6 overflow-x-auto items-center">
+            <a href="{{ url_for('pedidos.lista') }}"
+               class="whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium {{ tab_active if ep in ('pedidos.lista', 'pedidos.detalhe', 'pedidos.novo', 'pedidos.entregar') else tab_idle }}">
+                Pedidos
+            </a>
+            <a href="{{ url_for('pedidos.lista_permutas') }}"
+               class="whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium {{ tab_active if ep == 'pedidos.lista_permutas' else tab_idle }}">
+                Permutas
+            </a>
+            <div class="flex-1"></div>
+            <a href="{{ url_for('pedidos.novo') }}"
+               class="btn-primary text-sm py-1.5">Novo pedido</a>
+        </nav>
+    </div>
+</div>
+
+{% block pedidos_content %}{% endblock %}
+{% endblock %}

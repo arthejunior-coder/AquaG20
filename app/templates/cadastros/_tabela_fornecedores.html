@@ -1,0 +1,42 @@
+{% if fornecedores %}
+<div class="card overflow-hidden">
+    <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+                <th class="px-4 py-2 text-left">Nome</th>
+                <th class="px-4 py-2 text-left">CNPJ</th>
+                <th class="px-4 py-2 text-left">Telefone</th>
+                <th class="px-4 py-2 text-left">Endereço</th>
+                <th class="px-4 py-2 text-right">Ações</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for f in fornecedores %}
+            <tr class="hover:bg-slate-50">
+                <td class="px-4 py-2">
+                    <a href="{{ url_for('cadastros.editar_fornecedor', id=f.id) }}"
+                       class="font-medium text-slate-900 hover:text-aqua-700">{{ f.nome }}</a>
+                </td>
+                <td class="px-4 py-2 text-slate-700 font-mono text-xs">{{ f.documento or "—" }}</td>
+                <td class="px-4 py-2 text-slate-700">{{ f.telefone or "—" }}</td>
+                <td class="px-4 py-2 text-slate-700">{{ f.endereco or "—" }}</td>
+                <td class="px-4 py-2 text-right">
+                    <a href="{{ url_for('cadastros.editar_fornecedor', id=f.id) }}"
+                       class="text-aqua-700 hover:text-aqua-900">Editar</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="text-xs text-slate-500 mt-3">{{ fornecedores|length }} fornecedor(es).</p>
+{% else %}
+<div class="card p-8 text-center text-sm text-slate-500">
+    {% if q %}
+        Nenhum fornecedor encontrado para <strong class="text-slate-700">"{{ q }}"</strong>.
+    {% else %}
+        Nenhum fornecedor cadastrado ainda.
+        <a href="{{ url_for('cadastros.novo_fornecedor') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">Cadastrar o primeiro</a>.
+    {% endif %}
+</div>
+{% endif %}

@@ -1,0 +1,88 @@
+{% extends "pedidos/_layout.html" %}
+{% from "_macros.html" import form_field %}
+{% block title %}Novo pedido — AquaG20{% endblock %}
+
+{% block pedidos_content %}
+<div class="mb-6">
+    <a href="{{ url_for('pedidos.lista') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para pedidos</a>
+    <h1 class="text-xl font-semibold text-slate-900 mt-1">Novo pedido</h1>
+    <p class="text-sm text-slate-500 mt-1">
+        Atacado: várias linhas (uma por faixa de validade) — atende a permuta casada.
+        Varejo: 1 linha com validade vazia.
+    </p>
+</div>
+
+<form method="post" novalidate class="space-y-6 max-w-5xl">
+    {{ form.hidden_tag() }}
+
+    <section class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-4">Cabeçalho</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{ form_field(form.cliente_id) }}
+            {{ form_field(form.politica_permuta,
+                help="'Casar' = atacado (validade casada na devolução). 'Flexível' = varejo.") }}
+            {{ form_field(form.forma_pagamento) }}
+            {{ form_field(form.canal) }}
+            <div class="md:col-span-2">{{ form_field(form.observacao) }}</div>
+        </div>
+    </section>
+
+    <section class="card p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold text-slate-800">Itens por faixa de validade</h2>
+            <button type="button" id="btn-add-linha" class="btn-secondary text-sm py-1.5">
+                + Adicionar linha
+            </button>
+        </div>
+
+        <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+                <tr>
+                    <th class="px-2 py-2 text-left">Tipo de garrafão</th>
+                    <th class="px-2 py-2 text-left">Quantidade</th>
+                    <th class="px-2 py-2 text-left">Validade <span class="font-normal lowercase">(opcional)</span></th>
+                    <th class="px-2 py-2 text-left">Preço unitário (R$)</th>
+                    <th class="px-2 py-2"></th>
+                </tr>
+            </thead>
+            <tbody id="itens-tbody" class="divide-y divide-slate-100">
+                {% set linhas = linhas_preservadas or [{"idx": 0, "tipo_garrafao_id": "", "quantidade": "", "validade_solicitada": "", "preco_unitario": ""}] %}
+                {% for linha in linhas %}
+                    {% include "pedidos/_linha_item.html" %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="text-xs text-slate-500 mt-2">
+            Validade vazia = pedido sem exigência (varejo). Quantidade obrigatória > 0.
+        </p>
+    </section>
+
+    <div class="flex items-center gap-3">
+        {{ form.submit(class="btn-primary") }}
+        <a href="{{ url_for('pedidos.lista') }}" class="btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+    // Botão "Adicionar linha" via HTMX (server-rendered <tr>)
+    (function() {
+        const btn = document.getElementById('btn-add-linha');
+        const tbody = document.getElementById('itens-tbody');
+        btn.addEventListener('click', function() {
+            // Próximo idx = maior data-row-idx + 1
+            let maxIdx = -1;
+            tbody.querySelectorAll('tr[data-row-idx]').forEach(function(tr) {
+                const i = parseInt(tr.getAttribute('data-row-idx'), 10);
+                if (!isNaN(i) && i > maxIdx) maxIdx = i;
+            });
+            const nextIdx = maxIdx + 1;
+            // HTMX request manual
+            htmx.ajax('GET', "{{ url_for('pedidos.nova_linha') }}?idx=" + nextIdx, {
+                target: tbody,
+                swap: 'beforeend'
+            });
+        });
+    })();
+</script>
+{% endblock %}

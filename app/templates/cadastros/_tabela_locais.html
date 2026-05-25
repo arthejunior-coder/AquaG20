@@ -1,0 +1,47 @@
+{% if locais %}
+<div class="card overflow-hidden">
+    <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+                <th class="px-4 py-2 text-left">Tipo</th>
+                <th class="px-4 py-2 text-left">Nome</th>
+                <th class="px-4 py-2 text-left">Veículo</th>
+                <th class="px-4 py-2 text-right">Ações</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for l in locais %}
+            <tr class="hover:bg-slate-50">
+                <td class="px-4 py-2">
+                    {% set color = {
+                        'cd': 'bg-aqua-50 text-aqua-800',
+                        'veiculo': 'bg-amber-50 text-amber-800',
+                        'industria': 'bg-violet-50 text-violet-800',
+                        'cliente': 'bg-slate-100 text-slate-700',
+                        'descarte': 'bg-rose-50 text-rose-800',
+                    }[l.tipo.value] %}
+                    <span class="text-xs px-2 py-0.5 rounded-full {{ color }} capitalize">{{ l.tipo.value }}</span>
+                </td>
+                <td class="px-4 py-2">
+                    <a href="{{ url_for('cadastros.editar_local', id=l.id) }}"
+                       class="font-medium text-slate-900 hover:text-aqua-700">{{ l.nome }}</a>
+                </td>
+                <td class="px-4 py-2 text-slate-600 text-xs font-mono">
+                    {% if l.veiculo_id %}#{{ l.veiculo_id }}{% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-2 text-right">
+                    <a href="{{ url_for('cadastros.editar_local', id=l.id) }}"
+                       class="text-aqua-700 hover:text-aqua-900">Editar</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="text-xs text-slate-500 mt-3">{{ locais|length }} local(is).</p>
+{% else %}
+<div class="card p-8 text-center text-sm text-slate-500">
+    Nenhum local cadastrado.
+    <a href="{{ url_for('cadastros.novo_local') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">Cadastrar o primeiro</a>.
+</div>
+{% endif %}

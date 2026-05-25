@@ -1,0 +1,43 @@
+{% extends "pool/_layout.html" %}
+{% from "_macros.html" import form_field %}
+{% block title %}Novo envase — Pool — AquaG20{% endblock %}
+
+{% block pool_content %}
+<div class="mb-6">
+    <a href="{{ url_for('pool.movimentos') }}" class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para histórico</a>
+    <h1 class="text-xl font-semibold text-slate-900 mt-1">Novo envase (industrialização)</h1>
+    <p class="text-sm text-slate-500 mt-1">
+        A indústria lava e enche os <strong>mesmos</strong> vasilhames vazios que o distribuidor levou.
+        <strong>Não muda o tamanho do pool</strong> e <strong>não muda a validade</strong> — a validade rastreada
+        é a do vasilhame (estampada no fundo, ~3 anos), não a da água.
+    </p>
+</div>
+
+<form method="post" novalidate class="space-y-6 max-w-2xl">
+    {{ form.hidden_tag() }}
+
+    <section class="card p-5 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{ form_field(form.tipo_garrafao_id, autofocus=true) }}
+            {{ form_field(form.local_industria_id) }}
+            {{ form_field(form.quantidade) }}
+            {{ form_field(form.validade, help="Validade do VASILHAME (estampada no fundo). Vai aparecer igual na saída.") }}
+        </div>
+        {{ form_field(form.observacao, placeholder="Ex.: OP 5678 — entregue 23/05") }}
+    </section>
+
+    <div class="bg-violet-50 border border-violet-200 rounded-md px-4 py-3 text-sm text-violet-900 max-w-2xl">
+        <p class="font-medium">O que vai acontecer:</p>
+        <ul class="mt-2 list-disc list-inside space-y-1 text-xs">
+            <li>Movimento 1: <code class="bg-white px-1 rounded">−Q vazio</code> no local indústria, validade selecionada</li>
+            <li>Movimento 2: <code class="bg-white px-1 rounded">+Q cheio</code> no local indústria, mesma validade</li>
+            <li>Tamanho do pool inalterado · validade inalterada · estado vazio → cheio</li>
+        </ul>
+    </div>
+
+    <div class="flex items-center gap-3">
+        {{ form.submit(class="btn-primary") }}
+        <a href="{{ url_for('pool.movimentos') }}" class="btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "pedidos/_layout.html" %}
+{% block title %}Permutas — AquaG20{% endblock %}
+
+{% block pedidos_content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-semibold text-slate-900">Permutas registradas</h1>
+    <p class="text-xs text-slate-500">Últimas {{ permutas|length }} (max 200).</p>
+</div>
+
+{% if permutas %}
+<div class="card overflow-hidden">
+    <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+                <th class="px-4 py-2 text-left">Quando</th>
+                <th class="px-4 py-2 text-left">Pedido</th>
+                <th class="px-4 py-2 text-left">Cliente</th>
+                <th class="px-4 py-2 text-left">Tipo</th>
+                <th class="px-4 py-2 text-right">Qtd</th>
+                <th class="px-4 py-2 text-left">Validade entregue</th>
+                <th class="px-4 py-2 text-left">Validade recebida</th>
+                <th class="px-4 py-2 text-center">Casado</th>
+                <th class="px-4 py-2 text-center">Concessão</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for p in permutas %}
+            {% set tipo = tipos_by_id.get(p.tipo_garrafao_id) %}
+            {% set cli = clientes_by_id.get(p.cliente_id) %}
+            <tr class="hover:bg-slate-50">
+                <td class="px-4 py-2 text-xs text-slate-500">
+                    {{ p.criado_em.strftime('%d/%m %H:%M') if p.criado_em else "—" }}
+                </td>
+                <td class="px-4 py-2 font-mono text-slate-700">
+                    {% if p.pedido_id %}
+                        <a href="{{ url_for('pedidos.detalhe', id=p.pedido_id) }}"
+                           class="text-aqua-700 hover:text-aqua-900">#{{ p.pedido_id }}</a>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-2">{{ cli.nome if cli else "—" }}</td>
+                <td class="px-4 py-2">{{ tipo.nome if tipo else "—" }}</td>
+                <td class="px-4 py-2 text-right font-mono tabular-nums">{{ p.quantidade }}</td>
+                <td class="px-4 py-2">
+                    {{ p.validade_entregue.strftime('%d/%m/%Y') if p.validade_entregue else "—" }}
+                </td>
+                <td class="px-4 py-2">
+                    {{ p.validade_recebida.strftime('%d/%m/%Y') if p.validade_recebida else "—" }}
+                </td>
+                <td class="px-4 py-2 text-center">
+                    {% if p.casado %}
+                        <span class="inline-flex px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">Sim</span>
+                    {% else %}
+                        <span class="inline-flex px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200">Não</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2 text-center">
+                    {% if p.concessao %}
+                        <span class="inline-flex px-2 py-0.5 rounded-full text-xs bg-rose-50 text-rose-700 border border-rose-200">Sim</span>
+                    {% else %}
+                        <span class="text-slate-300">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card p-8 text-center text-sm text-slate-500">
+    Nenhuma permuta registrada ainda.
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "financeiro/_layout.html" %}
+{% from "_macros.html" import form_field %}
+{% block title %}Pagar lançamento #{{ lancamento.id }} — AquaG20{% endblock %}
+
+{% block financeiro_content %}
+<div class="mb-6">
+    <a href="{{ url_for('financeiro.lista_lancamentos') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para lançamentos</a>
+    <h1 class="text-xl font-semibold text-slate-900 mt-1">
+        Registrar pagamento — Lançamento #{{ lancamento.id }}
+    </h1>
+    <p class="text-sm text-slate-500 mt-1">
+        {{ lancamento.descricao }} — Valor previsto:
+        <strong class="text-slate-700 font-mono">R$ {{ "%.2f"|format(lancamento.valor) }}</strong>
+    </p>
+</div>
+
+<form method="post" novalidate class="space-y-6 max-w-xl">
+    {{ form.hidden_tag() }}
+
+    <section class="card p-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{ form_field(form.pago_em) }}
+            {{ form_field(form.valor_pago,
+                help="Igual ao previsto → 'pago'. Menor → 'parcial'. Maior não é aceito.") }}
+            <div class="md:col-span-2">{{ form_field(form.forma) }}</div>
+        </div>
+    </section>
+
+    <div class="flex items-center gap-3">
+        {{ form.submit(class="btn-primary") }}
+        <a href="{{ url_for('financeiro.lista_lancamentos') }}" class="btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

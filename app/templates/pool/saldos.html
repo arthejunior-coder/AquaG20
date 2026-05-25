@@ -1,0 +1,77 @@
+{% extends "pool/_layout.html" %}
+{% block title %}Saldos — Pool — AquaG20{% endblock %}
+
+{% block pool_content %}
+<div class="flex items-baseline justify-between mb-4">
+    <h1 class="text-xl font-semibold text-slate-900">Saldos do pool</h1>
+    <p class="text-sm text-slate-500">
+        Total do pool (cheio + vazio + avariado):
+        <span class="font-mono text-lg font-semibold text-slate-900">{{ total_pool }}</span> garrafões
+    </p>
+</div>
+
+{% if not grupos %}
+<div class="card p-8 text-center text-sm text-slate-500">
+    <p>Nenhum garrafão no pool ainda.</p>
+    <p class="mt-2">
+        Cadastre um <a href="{{ url_for('cadastros.lista_tipos_garrafao') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">tipo de garrafão</a> e
+        <a href="{{ url_for('cadastros.lista_locais') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">locais</a>,
+        depois <a href="{{ url_for('pool.novo_movimento_compra') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">registre uma compra</a>.
+    </p>
+</div>
+{% else %}
+    {% for g in grupos %}
+    <section class="card overflow-hidden mb-4">
+        <header class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div>
+                <h2 class="font-semibold text-slate-900">
+                    {{ g.tipo.nome if g.tipo else '?' }}
+                    {% if g.tipo %}
+                        <span class="ml-2 text-xs font-mono px-2 py-0.5 rounded bg-aqua-50 text-aqua-800">{{ g.tipo.material.value }}</span>
+                        <span class="ml-1 text-xs text-slate-500">{{ "%.2f"|format(g.tipo.capacidade_litros) }}L</span>
+                    {% endif %}
+                </h2>
+            </div>
+            <div class="text-sm">
+                Total: <span class="font-mono font-semibold">{{ g.total }}</span>
+            </div>
+        </header>
+        <table class="min-w-full text-sm">
+            <thead class="text-slate-600 text-xs uppercase tracking-wide">
+                <tr>
+                    <th class="px-4 py-2 text-left">Local</th>
+                    <th class="px-4 py-2 text-left">Estado</th>
+                    <th class="px-4 py-2 text-left">Validade</th>
+                    <th class="px-4 py-2 text-right">Quantidade</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for s in g['items'] %}
+                {% set local = locais_by_id.get(s.local_id) %}
+                <tr>
+                    <td class="px-4 py-2">
+                        {% if local %}
+                            <span class="text-xs text-slate-500">[{{ local.tipo.value }}]</span>
+                            {{ local.nome }}
+                        {% else %}
+                            <span class="text-slate-400">#{{ s.local_id }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2">
+                        {% set estado_color = {
+                            'cheio':    'bg-emerald-50 text-emerald-800',
+                            'vazio':    'bg-aqua-50 text-aqua-800',
+                            'avariado': 'bg-rose-50 text-rose-800',
+                        }[s.estado.value] %}
+                        <span class="text-xs px-2 py-0.5 rounded-full {{ estado_color }} capitalize">{{ s.estado.value }}</span>
+                    </td>
+                    <td class="px-4 py-2 font-mono text-xs text-slate-700">{{ s.validade.strftime("%Y-%m-%d") }}</td>
+                    <td class="px-4 py-2 text-right font-mono tabular-nums font-semibold">{{ s.quantidade }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endfor %}
+{% endif %}
+{% endblock %}

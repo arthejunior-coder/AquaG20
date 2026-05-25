@@ -1,0 +1,49 @@
+{% extends "financeiro/_layout.html" %}
+{% from "_macros.html" import form_field %}
+{% set is_new = lancamento is none %}
+{% block title %}{{ "Novo lançamento" if is_new else "Editar lançamento" }} — AquaG20{% endblock %}
+
+{% block financeiro_content %}
+<div class="mb-6">
+    <a href="{{ url_for('financeiro.lista_lancamentos') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para lançamentos</a>
+    <h1 class="text-xl font-semibold text-slate-900 mt-1">
+        {% if is_new %}Novo lançamento{% else %}Editar lançamento #{{ lancamento.id }}{% endif %}
+    </h1>
+</div>
+
+<form method="post" novalidate class="space-y-6 max-w-3xl">
+    {{ form.hidden_tag() }}
+
+    <section class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-4">Dados básicos</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{ form_field(form.natureza,
+                help="Receber → cliente. Pagar → fornecedor.") }}
+            {{ form_field(form.descricao, autofocus=true) }}
+            {{ form_field(form.valor, placeholder="0,00") }}
+            {{ form_field(form.vencimento) }}
+        </div>
+    </section>
+
+    <section class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-4">Classificação</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{ form_field(form.centro_custo_id) }}
+            {{ form_field(form.cliente_id,
+                help="Use só se natureza='receber'.") }}
+            {{ form_field(form.fornecedor_id,
+                help="Use só se natureza='pagar'.") }}
+            {{ form_field(form.pedido_id,
+                placeholder="ID do pedido (opcional)",
+                help="Vínculo informativo — sem FK.") }}
+            {{ form_field(form.forma) }}
+        </div>
+    </section>
+
+    <div class="flex items-center gap-3">
+        {{ form.submit(class="btn-primary") }}
+        <a href="{{ url_for('financeiro.lista_lancamentos') }}" class="btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

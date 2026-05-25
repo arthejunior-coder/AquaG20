@@ -1,0 +1,36 @@
+{% extends "cadastros/_layout.html" %}
+{% from "_macros.html" import form_field %}
+{% set is_new = fornecedor is none %}
+{% block title %}{{ "Novo fornecedor" if is_new else "Editar " + fornecedor.nome }} — AquaG20{% endblock %}
+
+{% block cadastros_content %}
+<div class="mb-6">
+    <a href="{{ url_for('cadastros.lista_fornecedores') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para fornecedores</a>
+    <h1 class="text-xl font-semibold text-slate-900 mt-1">
+        {% if is_new %}Novo fornecedor{% else %}Editar fornecedor{% endif %}
+    </h1>
+    <p class="text-sm text-slate-500 mt-1">
+        Indústria onde se compra água envasada. O garrafão é sempre do distribuidor;
+        o que se paga é água + serviço de envase.
+    </p>
+</div>
+
+<form method="post" novalidate class="space-y-6 max-w-2xl">
+    {{ form.hidden_tag() }}
+
+    <section class="card p-5 space-y-4">
+        {{ form_field(form.nome, autofocus=true) }}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{ form_field(form.documento, placeholder="00.000.000/0000-00") }}
+            {{ form_field(form.telefone) }}
+        </div>
+        {{ form_field(form.endereco) }}
+    </section>
+
+    <div class="flex items-center gap-3">
+        {{ form.submit(class="btn-primary") }}
+        <a href="{{ url_for('cadastros.lista_fornecedores') }}" class="btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

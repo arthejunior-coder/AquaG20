@@ -1,0 +1,93 @@
+{% from "_macros.html" import post_form %}
+
+{% macro badge_status(status) -%}
+{% set v = status.value %}
+{% set classes = {
+    'pendente': 'bg-sky-50 text-sky-700 border-sky-200',
+    'pago': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'parcial': 'bg-amber-50 text-amber-700 border-amber-200',
+    'cancelado': 'bg-slate-100 text-slate-500 border-slate-200',
+}.get(v, 'bg-slate-100 text-slate-700 border-slate-200') %}
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border {{ classes }}">
+    {{ v.title() }}
+</span>
+{%- endmacro %}
+
+{% macro badge_natureza(natureza) -%}
+{% if natureza.value == 'receber' %}
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
+    Receber
+</span>
+{% else %}
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-100 text-rose-800">
+    Pagar
+</span>
+{% endif %}
+{%- endmacro %}
+
+{% if lancamentos %}
+<div class="card overflow-hidden">
+    <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+                <th class="px-4 py-2 text-left">Vencimento</th>
+                <th class="px-4 py-2 text-left">Natureza</th>
+                <th class="px-4 py-2 text-left">Descrição</th>
+                <th class="px-4 py-2 text-left">Contraparte</th>
+                <th class="px-4 py-2 text-right">Valor</th>
+                <th class="px-4 py-2 text-right">Pago</th>
+                <th class="px-4 py-2 text-left">Status</th>
+                <th class="px-4 py-2 text-right">Ações</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for l in lancamentos %}
+            {% set contraparte = clientes_by_id.get(l.cliente_id) if l.cliente_id else fornecedores_by_id.get(l.fornecedor_id) %}
+            <tr class="hover:bg-slate-50 {{ 'opacity-60' if l.status.value == 'cancelado' else '' }}">
+                <td class="px-4 py-2 text-slate-700 whitespace-nowrap">
+                    {{ l.vencimento.strftime('%d/%m/%Y') }}
+                </td>
+                <td class="px-4 py-2">{{ badge_natureza(l.natureza) }}</td>
+                <td class="px-4 py-2">
+                    <a href="{{ url_for('financeiro.editar_lancamento', id=l.id) }}"
+                       class="text-slate-900 hover:text-aqua-700">{{ l.descricao }}</a>
+                    {% if l.pedido_id %}
+                        <span class="block text-xs text-slate-500">Pedido #{{ l.pedido_id }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2 text-slate-700">
+                    {{ contraparte.nome if contraparte else "—" }}
+                </td>
+                <td class="px-4 py-2 text-right font-mono tabular-nums">
+                    {{ "%.2f"|format(l.valor) }}
+                </td>
+                <td class="px-4 py-2 text-right font-mono tabular-nums">
+                    {{ "%.2f"|format(l.valor_pago) if l.valor_pago is not none else "—" }}
+                </td>
+                <td class="px-4 py-2">{{ badge_status(l.status) }}</td>
+                <td class="px-4 py-2 text-right whitespace-nowrap text-xs">
+                    {% if l.status.value == 'pendente' %}
+                        <a href="{{ url_for('financeiro.pagar_lancamento', id=l.id) }}"
+                           class="text-emerald-700 hover:text-emerald-900 mr-2">Pagar</a>
+                        {{ post_form(url_for('financeiro.cancelar_lancamento', id=l.id),
+                            "Cancelar", classes="text-rose-600 hover:text-rose-800",
+                            confirm="Cancelar este lançamento?") }}
+                    {% elif l.status.value in ('pago', 'parcial', 'cancelado') %}
+                        {{ post_form(url_for('financeiro.reabrir_lancamento', id=l.id),
+                            "Reabrir", classes="text-slate-500 hover:text-slate-700") }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="text-xs text-slate-500 mt-3">{{ lancamentos|length }} lançamento(s).</p>
+{% else %}
+<div class="card p-8 text-center text-sm text-slate-500">
+    Nenhum lançamento encontrado.
+    <a href="{{ url_for('financeiro.novo_lancamento') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">
+        Criar o primeiro
+    </a>.
+</div>
+{% endif %}

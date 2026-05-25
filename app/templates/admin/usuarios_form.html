@@ -1,0 +1,53 @@
+{% extends "admin/_layout.html" %}
+{% from "_macros.html" import form_field, form_checkbox %}
+{% set is_new = usuario is none %}
+{% block title %}{{ "Novo usuário" if is_new else "Editar " + usuario.email }} — AquaG20{% endblock %}
+
+{% block admin_content %}
+<div class="mb-6">
+    <a href="{{ url_for('admin.lista_usuarios') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para usuários</a>
+    <h1 class="text-xl font-semibold text-slate-900 mt-1">
+        {% if is_new %}Novo usuário{% else %}Editar usuário{% endif %}
+    </h1>
+    {% if not is_new %}
+        <p class="text-xs text-slate-500 mt-1 font-mono">{{ usuario.email }}</p>
+    {% endif %}
+</div>
+
+<form method="post" novalidate class="space-y-6 max-w-2xl">
+    {{ form.hidden_tag() }}
+
+    <section class="card p-5 space-y-4">
+        {{ form_field(form.nome, autofocus=true) }}
+        {% if is_new %}
+            {{ form_field(form.email, placeholder="usuario@dominio.com",
+                help="Email é único entre todos os tenants — não pode mudar depois.") }}
+        {% endif %}
+        {{ form_field(form.papel) }}
+    </section>
+
+    {% if is_new %}
+    <section class="card p-5 space-y-4">
+        <h2 class="text-sm font-semibold text-slate-800">Senha inicial</h2>
+        {{ form_field(form.senha,
+            help="Comunique ao usuário por canal seguro. Ele pode redefinir depois pelo \"esqueci a senha\".") }}
+        {{ form_field(form.confirmacao) }}
+    </section>
+    {% endif %}
+
+    <section class="card p-5">
+        {{ form_checkbox(form.ativo) }}
+        {% if not is_new and usuario.id == current_user.id %}
+            <p class="mt-2 text-xs text-rose-700">
+                Você não pode desativar a si mesmo nesta tela.
+            </p>
+        {% endif %}
+    </section>
+
+    <div class="flex items-center gap-3">
+        {{ form.submit(class="btn-primary") }}
+        <a href="{{ url_for('admin.lista_usuarios') }}" class="btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,180 @@
+{% extends "rotas/_layout.html" %}
+{% from "_macros.html" import form_field, post_form %}
+{% block title %}Rota #{{ rota.id }} — AquaG20{% endblock %}
+
+{% macro badge_rota(status) -%}
+{% set v = status.value %}
+{% set classes = {
+    'planejada': 'bg-sky-50 text-sky-700 border-sky-200',
+    'em_andamento': 'bg-amber-50 text-amber-700 border-amber-200',
+    'concluida': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'cancelada': 'bg-slate-100 text-slate-500 border-slate-200',
+}.get(v, 'bg-slate-100 text-slate-700 border-slate-200') %}
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border {{ classes }}">
+    {{ v.replace('_', ' ').title() }}
+</span>
+{%- endmacro %}
+
+{% macro badge_parada(status) -%}
+{% set v = status.value %}
+{% set classes = {
+    'pendente': 'bg-sky-50 text-sky-700 border-sky-200',
+    'entregue': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'falhou': 'bg-rose-50 text-rose-700 border-rose-200',
+}.get(v, 'bg-slate-100 text-slate-700 border-slate-200') %}
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border {{ classes }}">
+    {{ v.title() }}
+</span>
+{%- endmacro %}
+
+{% block rotas_content %}
+<div class="mb-6">
+    <a href="{{ url_for('rotas.lista') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para rotas</a>
+    <div class="flex items-center gap-3 mt-1">
+        <h1 class="text-xl font-semibold text-slate-900">Rota #{{ rota.id }} — {{ rota.data_rota.strftime('%d/%m/%Y') }}</h1>
+        {{ badge_rota(rota.status) }}
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl">
+
+    {# ====== Coluna esquerda: paradas ====== #}
+    <section class="card p-5 lg:col-span-2">
+        <h2 class="text-sm font-semibold text-slate-800 mb-3">Paradas</h2>
+
+        {% if paradas %}
+        <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+                <tr>
+                    <th class="px-3 py-2 text-left">#</th>
+                    <th class="px-3 py-2 text-left">Pedido</th>
+                    <th class="px-3 py-2 text-left">Cliente</th>
+                    <th class="px-3 py-2 text-right">Qtd</th>
+                    <th class="px-3 py-2 text-left">Status</th>
+                    <th class="px-3 py-2 text-right">Ações</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for p in paradas %}
+                {% set ped = pedidos_by_id.get(p.pedido_id) %}
+                {% set cli = clientes_by_id.get(ped.cliente_id) if ped else None %}
+                <tr class="hover:bg-slate-50">
+                    <td class="px-3 py-2 text-slate-700 font-mono">{{ p.ordem + 1 }}</td>
+                    <td class="px-3 py-2">
+                        <a href="{{ url_for('pedidos.detalhe', id=p.pedido_id) }}"
+                           class="text-aqua-700 hover:text-aqua-900 font-mono">#{{ p.pedido_id }}</a>
+                    </td>
+                    <td class="px-3 py-2 text-slate-900">{{ cli.nome if cli else "—" }}</td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">
+                        {{ ped.qtd_total if ped else "—" }}
+                    </td>
+                    <td class="px-3 py-2">{{ badge_parada(p.status) }}</td>
+                    <td class="px-3 py-2 text-right whitespace-nowrap text-xs">
+                        {% if rota.status.value == 'em_andamento' and p.status.value == 'pendente' %}
+                            <a href="{{ url_for('pedidos.entregar', id=p.pedido_id) }}?parada_id={{ p.id }}"
+                               class="text-emerald-700 hover:text-emerald-900 mr-2">Entregar</a>
+                            {{ post_form(
+                                url_for('rotas.falhar_parada', id=rota.id, pid=p.id),
+                                "Falhou", classes="text-rose-600 hover:text-rose-800",
+                                confirm="Marcar parada como falhou?"
+                            ) }}
+                        {% elif rota.status.value == 'planejada' %}
+                            {{ post_form(
+                                url_for('rotas.remover_parada', id=rota.id, pid=p.id),
+                                "Remover", classes="text-rose-600 hover:text-rose-800",
+                                confirm="Remover parada?"
+                            ) }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-sm text-slate-500 text-center py-6">
+            Nenhuma parada nesta rota.
+        </p>
+        {% endif %}
+
+        {# Adicionar parada — só em planejada #}
+        {% if rota.status.value == 'planejada' %}
+        <form method="post" action="{{ url_for('rotas.adicionar_parada', id=rota.id) }}"
+              class="mt-4 pt-4 border-t border-slate-200 flex gap-2 items-end">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="flex-1">
+                <label class="form-label" for="pedido_id">Adicionar pedido</label>
+                <select id="pedido_id" name="pedido_id" class="form-input">
+                    {% if pedidos_disponiveis %}
+                        {% for p in pedidos_disponiveis %}
+                            {% set cli = clientes_by_id.get(p.cliente_id) %}
+                            <option value="{{ p.id }}">
+                                #{{ p.id }} · {{ cli.nome if cli else "?" }} · {{ p.qtd_total }} un
+                            </option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="">— sem pedidos disponíveis —</option>
+                    {% endif %}
+                </select>
+            </div>
+            <button type="submit" class="btn-primary text-sm py-1.5"
+                {{ "disabled" if not pedidos_disponiveis }}>+ Adicionar</button>
+        </form>
+        {% endif %}
+    </section>
+
+    {# ====== Coluna direita: ações ====== #}
+    <aside class="space-y-4">
+        <section class="card p-5">
+            <h2 class="text-sm font-semibold text-slate-800 mb-3">Cabeçalho</h2>
+            <dl class="space-y-2 text-sm">
+                <div class="flex justify-between"><dt class="text-slate-500">Data</dt>
+                    <dd class="text-slate-800">{{ rota.data_rota.strftime('%d/%m/%Y') }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Veículo</dt>
+                    <dd class="text-slate-800">{{ (veiculo.tipo.value ~ " · " ~ (veiculo.placa or veiculo.descricao or '#' ~ veiculo.id)) if veiculo else "—" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Entregador</dt>
+                    <dd class="text-slate-800">{{ entregador.nome if entregador else "—" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Criada em</dt>
+                    <dd class="text-slate-800">{{ rota.criado_em.strftime('%d/%m/%Y %H:%M') if rota.criado_em else "—" }}</dd></div>
+            </dl>
+        </section>
+
+        {% if rota.status.value == 'planejada' %}
+        <section class="card p-5">
+            <h2 class="text-sm font-semibold text-slate-800 mb-3">Editar cabeçalho</h2>
+            <form method="post" class="space-y-3">
+                {{ form.hidden_tag() }}
+                {{ form_field(form.data_rota) }}
+                {{ form_field(form.veiculo_id) }}
+                {{ form_field(form.entregador_id) }}
+                {{ form.submit(class="btn-secondary w-full text-sm py-1.5") }}
+            </form>
+        </section>
+        {% endif %}
+
+        <section class="card p-5">
+            <h2 class="text-sm font-semibold text-slate-800 mb-3">Ações</h2>
+            <div class="flex flex-col gap-2">
+                {% if rota.status.value == 'planejada' %}
+                    <form method="post" action="{{ url_for('rotas.iniciar', id=rota.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-primary w-full">Iniciar rota</button>
+                    </form>
+                {% elif rota.status.value == 'em_andamento' %}
+                    <form method="post" action="{{ url_for('rotas.concluir', id=rota.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-primary w-full">Concluir rota</button>
+                    </form>
+                {% endif %}
+                {% if rota.status.value in ('planejada', 'em_andamento') %}
+                    <form method="post" action="{{ url_for('rotas.cancelar', id=rota.id) }}"
+                          onsubmit="return confirm('Cancelar rota #{{ rota.id }}?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-secondary w-full text-rose-700">Cancelar rota</button>
+                    </form>
+                {% endif %}
+            </div>
+        </section>
+    </aside>
+</div>
+{% endblock %}

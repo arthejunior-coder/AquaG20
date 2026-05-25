@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+
+# Virtualenvs
+venv/
+env/
+.venv/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Flask
+instance/
+
+# Node / Tailwind
+node_modules/
+package-lock.json
+app/static/css/tailwind.css
+
+# Tailwind standalone binary (baixado por scripts/install_tailwind.ps1)
+scripts/tailwindcss.exe
+
+# Logs locais
+pip_install.log
+flask_run.log
+*.log
+*.log.[0-9]*
+
+# Backups MySQL gerados por scripts/backup_db.py
+backups/
+*.sql.gz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Claude Code — runtime + configs locais (deixe o dev decidir o que opt-in)
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

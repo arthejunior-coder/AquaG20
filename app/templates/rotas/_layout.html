@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set ep = request.endpoint or "" %}
+
+<div class="mb-6">
+    <div class="border-b border-slate-200 flex items-center gap-4">
+        <nav class="-mb-px flex gap-6 overflow-x-auto items-center flex-1">
+            <a href="{{ url_for('rotas.lista') }}"
+               class="whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium
+                      {{ 'border-aqua-600 text-aqua-700' if ep.startswith('rotas.') else 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300' }}">
+                Rotas
+            </a>
+        </nav>
+        <a href="{{ url_for('rotas.nova') }}" class="btn-primary text-sm py-1.5">Nova rota</a>
+    </div>
+</div>
+
+{% block rotas_content %}{% endblock %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto text-center py-16">
+    <p class="text-aqua-700 font-mono text-sm">{{ code }}</p>
+    <h1 class="text-3xl font-semibold text-slate-900 mt-2">{{ titulo }}</h1>
+    <p class="text-slate-600 mt-3">{{ explicacao }}</p>
+    <div class="mt-8 flex items-center justify-center gap-3">
+        <a href="{{ url_for('dashboard.index') }}" class="btn-primary">Voltar ao painel</a>
+        <a href="javascript:history.back()" class="btn-secondary">Voltar</a>
+    </div>
+</div>
+{% endblock %}

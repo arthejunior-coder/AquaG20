@@ -1,0 +1,65 @@
+{% if movs %}
+<div class="card overflow-hidden">
+    <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+                <th class="px-3 py-2 text-left">Data</th>
+                <th class="px-3 py-2 text-left">Tipo</th>
+                <th class="px-3 py-2 text-left">Garrafão</th>
+                <th class="px-3 py-2 text-left">Origem → Destino</th>
+                <th class="px-3 py-2 text-left">Estado</th>
+                <th class="px-3 py-2 text-left">Validade</th>
+                <th class="px-3 py-2 text-right">Qtd</th>
+                <th class="px-3 py-2 text-left">Observação</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for m in movs %}
+            {% set tipo_color = {
+                'compra':        'bg-emerald-50 text-emerald-800',
+                'descarte':      'bg-rose-50 text-rose-800',
+                'transferencia': 'bg-aqua-50 text-aqua-800',
+                'envase':        'bg-violet-50 text-violet-800',
+                'permuta':       'bg-amber-50 text-amber-800',
+                'avaria':        'bg-rose-50 text-rose-700',
+                'ajuste':        'bg-slate-100 text-slate-700',
+            }[m.tipo.value] %}
+            <tr class="hover:bg-slate-50">
+                <td class="px-3 py-2 text-xs text-slate-600 font-mono whitespace-nowrap">
+                    {{ m.criado_em.strftime("%Y-%m-%d %H:%M") }}
+                </td>
+                <td class="px-3 py-2">
+                    <span class="text-xs px-2 py-0.5 rounded-full {{ tipo_color }} capitalize">{{ m.tipo.value }}</span>
+                </td>
+                <td class="px-3 py-2 text-slate-700">
+                    {% set t = tipos_by_id.get(m.tipo_garrafao_id) %}
+                    {{ t.nome if t else '#' ~ m.tipo_garrafao_id }}
+                </td>
+                <td class="px-3 py-2 text-xs text-slate-700">
+                    {% set lo = locais_by_id.get(m.local_origem_id) if m.local_origem_id %}
+                    {% set ld = locais_by_id.get(m.local_destino_id) if m.local_destino_id %}
+                    {% if lo and ld %}
+                        {{ lo.nome }} → {{ ld.nome }}
+                    {% elif lo %}
+                        {{ lo.nome }} →
+                    {% elif ld %}
+                        → {{ ld.nome }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td class="px-3 py-2 text-xs capitalize text-slate-600">{{ m.estado.value }}</td>
+                <td class="px-3 py-2 text-xs font-mono text-slate-600">{{ m.validade.strftime("%Y-%m-%d") if m.validade else "—" }}</td>
+                <td class="px-3 py-2 text-right font-mono tabular-nums">{{ m.quantidade }}</td>
+                <td class="px-3 py-2 text-xs text-slate-500 max-w-xs truncate">{{ m.observacao or "" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="text-xs text-slate-500 mt-3">{{ movs|length }} movimento(s){% if movs|length == 200 %} (limite atingido){% endif %}.</p>
+{% else %}
+<div class="card p-8 text-center text-sm text-slate-500">
+    Nenhum movimento registrado{% if tipo_filter %} para tipo <strong>{{ tipo_filter }}</strong>{% endif %}.
+</div>
+{% endif %}

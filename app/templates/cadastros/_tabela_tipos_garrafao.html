@@ -1,0 +1,54 @@
+{% from "_macros.html" import badge_ativo, post_form %}
+
+{% if tipos %}
+<div class="card overflow-hidden">
+    <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+                <th class="px-4 py-2 text-left">Nome</th>
+                <th class="px-4 py-2 text-left">Material</th>
+                <th class="px-4 py-2 text-right">Capacidade</th>
+                <th class="px-4 py-2 text-right">Reposição</th>
+                <th class="px-4 py-2 text-left">Status</th>
+                <th class="px-4 py-2 text-right">Ações</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for t in tipos %}
+            <tr class="hover:bg-slate-50 {{ 'opacity-60' if not t.ativo else '' }}">
+                <td class="px-4 py-2">
+                    <a href="{{ url_for('cadastros.editar_tipo_garrafao', id=t.id) }}"
+                       class="font-medium text-slate-900 hover:text-aqua-700">{{ t.nome }}</a>
+                </td>
+                <td class="px-4 py-2">
+                    <span class="font-mono text-xs px-2 py-0.5 rounded bg-aqua-50 text-aqua-800">{{ t.material.value }}</span>
+                </td>
+                <td class="px-4 py-2 text-right tabular-nums">{{ "%.2f"|format(t.capacidade_litros) }} L</td>
+                <td class="px-4 py-2 text-right tabular-nums">
+                    {% if t.valor_reposicao %}R$ {{ "%.2f"|format(t.valor_reposicao) }}{% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-2">{{ badge_ativo(t.ativo) }}</td>
+                <td class="px-4 py-2 text-right">
+                    <a href="{{ url_for('cadastros.editar_tipo_garrafao', id=t.id) }}"
+                       class="text-aqua-700 hover:text-aqua-900 mr-3">Editar</a>
+                    {{ post_form(
+                        url_for('cadastros.toggle_tipo_garrafao', id=t.id),
+                        "Reativar" if not t.ativo else "Desativar"
+                    ) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="text-xs text-slate-500 mt-3">{{ tipos|length }} tipo(s) de garrafão.</p>
+{% else %}
+<div class="card p-8 text-center text-sm text-slate-500">
+    {% if q %}
+        Nenhum tipo encontrado para <strong class="text-slate-700">"{{ q }}"</strong>.
+    {% else %}
+        Nenhum tipo de garrafão cadastrado.
+        <a href="{{ url_for('cadastros.novo_tipo_garrafao') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">Cadastrar o primeiro</a>.
+    {% endif %}
+</div>
+{% endif %}

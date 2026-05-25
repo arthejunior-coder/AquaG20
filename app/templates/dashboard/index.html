@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Painel — AquaG20{% endblock %}
+
+{% set meses_nome = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'] %}
+
+{% set total_envelhecimento = envelhecimento | sum(attribute='quantidade') %}
+{% set vencidos_qtd = envelhecimento | selectattr('vencido') | sum(attribute='quantidade') %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-semibold text-slate-900">Painel</h1>
+    <p class="text-sm text-slate-500 mt-1">
+        Visão geral da saúde do pool de garrafões — 3 KPIs centrais do produto.
+    </p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+
+    {# ===== (a) Envelhecimento ===== #}
+    <div class="card p-5">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Envelhecimento do pool
+                </p>
+                <p class="text-3xl font-semibold text-slate-900 mt-2">
+                    {{ total_envelhecimento }}
+                </p>
+                <p class="text-xs text-slate-500 mt-1">
+                    cheios vencendo nos próximos 6 meses + vencidos
+                </p>
+            </div>
+            {% if vencidos_qtd > 0 %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                {{ vencidos_qtd }} vencido(s)
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ===== (b) Taxa de casamento ===== #}
+    <div class="card p-5">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Taxa de casamento
+                </p>
+                <p class="text-3xl font-semibold mt-2
+                    {{ 'text-emerald-700' if casamento.percentual >= 80
+                        else ('text-amber-700' if casamento.percentual >= 50
+                            else 'text-rose-700') }}">
+                    {{ "%.1f"|format(casamento.percentual) }}%
+                </p>
+                <p class="text-xs text-slate-500 mt-1">
+                    {{ casamento.permutas_quantidade_casada }} / {{ casamento.permutas_quantidade_total }}
+                    permutas (30d)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {# ===== (c) Custo de reposição ===== #}
+    <div class="card p-5">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Reposição mensal
+                </p>
+                <p class="text-3xl font-semibold text-slate-900 mt-2">
+                    R$ {{ "%.2f"|format(custo.total_valor) }}
+                </p>
+                <p class="text-xs text-slate-500 mt-1">
+                    {{ custo.total_unidades }} garrafões (descarte + avaria, 30d)
+                </p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-6xl">
+
+    {# Detalhe do envelhecimento #}
+    <section class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-3">
+            Cheios por mês de validade
+        </h2>
+        {% if envelhecimento %}
+        <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+                <tr>
+                    <th class="px-3 py-2 text-left">Mês</th>
+                    <th class="px-3 py-2 text-right">Cheios</th>
+                    <th class="px-3 py-2 text-right">% do total</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for f in envelhecimento %}
+                <tr class="{{ 'bg-rose-50/40' if f.vencido else '' }}">
+                    <td class="px-3 py-2 text-slate-700">
+                        {{ meses_nome[f.mes - 1] }}/{{ f.ano }}
+                        {% if f.vencido %}
+                            <span class="ml-2 text-xs px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">vencido</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ f.quantidade }}</td>
+                    <td class="px-3 py-2 text-right text-slate-500 font-mono">
+                        {{ "%.1f"|format(100.0 * f.quantidade / total_envelhecimento) if total_envelhecimento else "—" }}%
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-sm text-slate-500 py-6 text-center">
+            Nenhum cheio vencendo nos próximos 6 meses.
+        </p>
+        {% endif %}
+    </section>
+
+    {# Detalhe do custo #}
+    <section class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-3">
+            Detalhe do custo de reposição (30 dias)
+        </h2>
+        <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+                <tr>
+                    <th class="px-3 py-2 text-left">Origem</th>
+                    <th class="px-3 py-2 text-right">Unidades</th>
+                    <th class="px-3 py-2 text-right">Valor (R$)</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <tr>
+                    <td class="px-3 py-2 text-slate-700">Descarte</td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ custo.descarte_unidades }}</td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ "%.2f"|format(custo.descarte_valor) }}</td>
+                </tr>
+                <tr>
+                    <td class="px-3 py-2 text-slate-700">Avaria</td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ custo.avaria_unidades }}</td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ "%.2f"|format(custo.avaria_valor) }}</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr class="border-t-2 border-slate-200 bg-slate-50">
+                    <td class="px-3 py-2 text-right font-semibold text-slate-700">Total</td>
+                    <td class="px-3 py-2 text-right font-mono font-semibold">{{ custo.total_unidades }}</td>
+                    <td class="px-3 py-2 text-right font-mono font-semibold">R$ {{ "%.2f"|format(custo.total_valor) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+        <p class="text-xs text-slate-500 mt-3">
+            Tipos sem <code>valor_reposicao</code> cadastrado contam como R$ 0. Cadastre em
+            <a href="{{ url_for('cadastros.lista_tipos_garrafao') }}" class="text-aqua-700 hover:underline">Tipos de garrafão</a>.
+        </p>
+    </section>
+
+</div>
+
+<div class="mt-6 text-xs text-slate-400">
+    Logado como <span class="font-mono">{{ user.email }}</span> · tenant_id={{ user.tenant_id }} · papel={{ user.papel.value }}
+</div>
+{% endblock %}

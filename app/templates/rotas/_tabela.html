@@ -1,0 +1,62 @@
+{% macro badge_rota(status) -%}
+{% set v = status.value %}
+{% set classes = {
+    'planejada': 'bg-sky-50 text-sky-700 border-sky-200',
+    'em_andamento': 'bg-amber-50 text-amber-700 border-amber-200',
+    'concluida': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'cancelada': 'bg-slate-100 text-slate-500 border-slate-200',
+}.get(v, 'bg-slate-100 text-slate-700 border-slate-200') %}
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border {{ classes }}">
+    {{ v.replace('_', ' ').title() }}
+</span>
+{%- endmacro %}
+
+{% if rotas %}
+<div class="card overflow-hidden">
+    <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+                <th class="px-4 py-2 text-left">#</th>
+                <th class="px-4 py-2 text-left">Data</th>
+                <th class="px-4 py-2 text-left">Veículo</th>
+                <th class="px-4 py-2 text-left">Entregador</th>
+                <th class="px-4 py-2 text-right">Paradas</th>
+                <th class="px-4 py-2 text-left">Status</th>
+                <th class="px-4 py-2 text-right">Ações</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for r in rotas %}
+            {% set v = veiculos_by_id.get(r.veiculo_id) if r.veiculo_id else None %}
+            {% set e = entregadores_by_id.get(r.entregador_id) if r.entregador_id else None %}
+            <tr class="hover:bg-slate-50">
+                <td class="px-4 py-2 font-mono text-slate-700">{{ r.id }}</td>
+                <td class="px-4 py-2 text-slate-900">{{ r.data_rota.strftime('%d/%m/%Y') }}</td>
+                <td class="px-4 py-2 text-slate-700">
+                    {% if v %}{{ v.tipo.value }} · {{ v.placa or v.descricao or '#' ~ v.id }}{% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-2 text-slate-700">{{ e.nome if e else "—" }}</td>
+                <td class="px-4 py-2 text-right font-mono tabular-nums">
+                    {{ paradas_count.get(r.id, 0) }}
+                </td>
+                <td class="px-4 py-2">{{ badge_rota(r.status) }}</td>
+                <td class="px-4 py-2 text-right">
+                    <a href="{{ url_for('rotas.detalhe', id=r.id) }}"
+                       class="text-aqua-700 hover:text-aqua-900">Detalhe</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="text-xs text-slate-500 mt-3">{{ rotas|length }} rota(s).</p>
+{% else %}
+<div class="card p-8 text-center text-sm text-slate-500">
+    {% if status_filter or data_filter %}
+        Nenhuma rota com os filtros atuais.
+    {% else %}
+        Nenhuma rota planejada.
+        <a href="{{ url_for('rotas.nova') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">Criar a primeira</a>.
+    {% endif %}
+</div>
+{% endif %}

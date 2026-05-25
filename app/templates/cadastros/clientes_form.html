@@ -1,0 +1,60 @@
+{% extends "cadastros/_layout.html" %}
+{% from "_macros.html" import form_field, form_checkbox %}
+{% set is_new = cliente is none %}
+{% block title %}{{ "Novo cliente" if is_new else "Editar " + cliente.nome }} — AquaG20{% endblock %}
+
+{% block cadastros_content %}
+<div class="mb-6">
+    <a href="{{ url_for('cadastros.lista_clientes') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para clientes</a>
+    <h1 class="text-xl font-semibold text-slate-900 mt-1">
+        {% if is_new %}Novo cliente{% else %}Editar cliente{% endif %}
+    </h1>
+</div>
+
+<form method="post" novalidate class="space-y-6 max-w-3xl">
+    {{ form.hidden_tag() }}
+
+    <section class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-4">Identificação</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">{{ form_field(form.nome, autofocus=true) }}</div>
+            {{ form_field(form.tipo) }}
+            {{ form_field(form.nome_fantasia) }}
+            {{ form_field(form.documento, placeholder="CPF ou CNPJ") }}
+        </div>
+    </section>
+
+    <section class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-4">Contato</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{ form_field(form.telefone, placeholder="(11) 99999-9999") }}
+            {{ form_field(form.email) }}
+        </div>
+    </section>
+
+    <section class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-4">Endereço</h2>
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div class="md:col-span-4">{{ form_field(form.endereco) }}</div>
+            <div class="md:col-span-2">{{ form_field(form.bairro) }}</div>
+            <div class="md:col-span-3">{{ form_field(form.cidade) }}</div>
+            <div class="md:col-span-1">{{ form_field(form.uf, placeholder="UF") }}</div>
+            <div class="md:col-span-2">{{ form_field(form.cep) }}</div>
+        </div>
+    </section>
+
+    <section class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-4">Operação</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{ form_field(form.saldo_garrafoes, help="Desbalanço da permuta. Pode ser negativo. Normal: 0.") }}
+            <div class="flex items-end">{{ form_checkbox(form.ativo) }}</div>
+        </div>
+    </section>
+
+    <div class="flex items-center gap-3">
+        {{ form.submit(class="btn-primary") }}
+        <a href="{{ url_for('cadastros.lista_clientes') }}" class="btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% from "_macros.html" import badge_ativo, post_form %}
+
+{% if centros %}
+<div class="card overflow-hidden">
+    <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+                <th class="px-4 py-2 text-left">Nome</th>
+                <th class="px-4 py-2 text-left">Categoria</th>
+                <th class="px-4 py-2 text-left">Status</th>
+                <th class="px-4 py-2 text-right">Ações</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for c in centros %}
+            <tr class="hover:bg-slate-50 {{ 'opacity-60' if not c.ativo else '' }}">
+                <td class="px-4 py-2">
+                    <a href="{{ url_for('cadastros.editar_centro_custo', id=c.id) }}"
+                       class="font-medium text-slate-900 hover:text-aqua-700">{{ c.nome }}</a>
+                </td>
+                <td class="px-4 py-2 capitalize text-slate-700">{{ c.tipo.value }}</td>
+                <td class="px-4 py-2">{{ badge_ativo(c.ativo) }}</td>
+                <td class="px-4 py-2 text-right">
+                    <a href="{{ url_for('cadastros.editar_centro_custo', id=c.id) }}"
+                       class="text-aqua-700 hover:text-aqua-900 mr-3">Editar</a>
+                    {{ post_form(
+                        url_for('cadastros.toggle_centro_custo', id=c.id),
+                        "Reativar" if not c.ativo else "Desativar"
+                    ) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="text-xs text-slate-500 mt-3">{{ centros|length }} centro(s) de custo.</p>
+{% else %}
+<div class="card p-8 text-center text-sm text-slate-500">
+    {% if q %}
+        Nenhum centro encontrado para <strong class="text-slate-700">"{{ q }}"</strong>.
+    {% else %}
+        Nenhum centro de custo cadastrado.
+        <a href="{{ url_for('cadastros.novo_centro_custo') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">Cadastrar o primeiro</a>.
+    {% endif %}
+</div>
+{% endif %}

@@ -1,0 +1,42 @@
+{#
+  Macros compartilhadas de renderização — formularios, paginação, etc.
+  Importe no template com:  {% from "_macros.html" import form_field %}
+#}
+
+{# Renderiza um WTForms field com label + input + erros, layout padrão. #}
+{%- macro form_field(field, classes="form-input", placeholder=None, autofocus=False, help=None) -%}
+<div>
+    <label for="{{ field.id }}" class="form-label">
+        {{ field.label.text }}{% if field.flags.required %} <span class="text-rose-600">*</span>{% endif %}
+    </label>
+    {{ field(class=classes, placeholder=placeholder or "", autofocus=autofocus or none) }}
+    {% if help %}<p class="mt-1 text-xs text-slate-500">{{ help }}</p>{% endif %}
+    {% for e in field.errors %}<p class="form-error">{{ e }}</p>{% endfor %}
+</div>
+{%- endmacro %}
+
+{# Renderiza checkbox com label inline. #}
+{%- macro form_checkbox(field) -%}
+<label class="inline-flex items-center gap-2 text-sm text-slate-700">
+    {{ field(class="rounded border-slate-300 text-aqua-600 focus:ring-aqua-500") }}
+    {{ field.label.text }}
+</label>
+{%- endmacro %}
+
+{# Form simples de POST com CSRF — usado em botões de toggle/excluir. #}
+{%- macro post_form(action, label, classes="text-slate-500 hover:text-slate-900", confirm=None) -%}
+<form method="post" action="{{ action }}" class="inline"
+      {% if confirm %}onsubmit="return confirm('{{ confirm }}');"{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="{{ classes }}">{{ label }}</button>
+</form>
+{%- endmacro %}
+
+{# Badge de status (ativo/inativo). #}
+{%- macro badge_ativo(ativo) -%}
+{% if ativo %}
+    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Ativo</span>
+{% else %}
+    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">Inativo</span>
+{% endif %}
+{%- endmacro %}

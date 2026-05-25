@@ -1,0 +1,24 @@
+{% extends "cadastros/_layout.html" %}
+{% block title %}Fornecedores — AquaG20{% endblock %}
+
+{% block cadastros_content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-semibold text-slate-900">Fornecedores</h1>
+    <a href="{{ url_for('cadastros.novo_fornecedor') }}" class="btn-primary">Novo fornecedor</a>
+</div>
+
+<div class="card p-4 mb-4">
+    <input type="search" name="q" value="{{ q }}"
+           class="form-input"
+           hx-get="{{ url_for('cadastros.lista_fornecedores') }}"
+           hx-trigger="keyup changed delay:300ms, search"
+           hx-target="#tabela-container"
+           hx-swap="innerHTML"
+           hx-push-url="true"
+           placeholder="Buscar por nome ou CNPJ..." />
+</div>
+
+<div id="tabela-container">
+    {% include "cadastros/_tabela_fornecedores.html" %}
+</div>
+{% endblock %}

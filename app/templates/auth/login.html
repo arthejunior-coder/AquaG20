@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Login — AquaG20{% endblock %}
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-aqua-100 mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-8 h-8 text-aqua-700">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-semibold text-slate-900">AquaG20</h1>
+            <p class="text-sm text-slate-500 mt-1">Gestão de pool de garrafões e logística</p>
+        </div>
+
+        <div class="card p-6">
+            <h2 class="text-base font-semibold text-slate-800 mb-4">Entrar na sua conta</h2>
+
+            <form method="post" novalidate class="space-y-4">
+                {{ form.hidden_tag() }}
+
+                <div>
+                    <label for="{{ form.email.id }}" class="form-label">{{ form.email.label.text }}</label>
+                    {{ form.email(class="form-input", autofocus=true, autocomplete="username", placeholder="voce@distribuidora.com") }}
+                    {% for e in form.email.errors %}<p class="form-error">{{ e }}</p>{% endfor %}
+                </div>
+
+                <div>
+                    <label for="{{ form.senha.id }}" class="form-label">{{ form.senha.label.text }}</label>
+                    {{ form.senha(class="form-input", autocomplete="current-password") }}
+                    {% for e in form.senha.errors %}<p class="form-error">{{ e }}</p>{% endfor %}
+                </div>
+
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    {{ form.lembrar(class="rounded border-slate-300 text-aqua-600 focus:ring-aqua-500") }}
+                    {{ form.lembrar.label.text }}
+                </label>
+
+                {{ form.submit(class="btn-primary w-full") }}
+            </form>
+
+            <p class="text-center text-xs text-slate-500 mt-4">
+                <a href="{{ url_for('auth.esqueci_senha') }}"
+                   class="text-aqua-700 hover:text-aqua-900">Esqueci minha senha</a>
+            </p>
+        </div>
+
+        <p class="text-center text-xs text-slate-400 mt-6">
+            v0.1.0 · Distribuidor não cadastrado? Contate o administrador da plataforma.
+        </p>
+    </div>
+</div>
+{% endblock %}

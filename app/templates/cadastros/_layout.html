@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{# Layout interno dos cadastros — sub-tabs (Clientes/Fornecedores/Centros)
+   acima do conteúdo. Cada página de cadastro extende este layout. #}
+
+{% block content %}
+<div class="mb-6">
+    {% set tab_active = "border-aqua-600 text-aqua-700" %}
+    {% set tab_idle   = "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300" %}
+    {% set ep = request.endpoint or "" %}
+    <div class="border-b border-slate-200">
+        <nav class="-mb-px flex gap-6 overflow-x-auto">
+            <a href="{{ url_for('cadastros.lista_clientes') }}"
+               class="whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium {{ tab_active if 'clientes' in ep or ep.endswith('_cliente') else tab_idle }}">
+                Clientes
+            </a>
+            <a href="{{ url_for('cadastros.lista_fornecedores') }}"
+               class="whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium {{ tab_active if 'fornecedor' in ep else tab_idle }}">
+                Fornecedores
+            </a>
+            <a href="{{ url_for('cadastros.lista_tipos_garrafao') }}"
+               class="whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium {{ tab_active if 'tipo_garrafao' in ep or 'tipos_garrafao' in ep else tab_idle }}">
+                Tipos de garrafão
+            </a>
+            <a href="{{ url_for('cadastros.lista_locais') }}"
+               class="whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium {{ tab_active if ep.endswith('_local') or ep.endswith('_locais') else tab_idle }}">
+                Locais de estoque
+            </a>
+            <a href="{{ url_for('cadastros.lista_centros_custo') }}"
+               class="whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium {{ tab_active if 'centro' in ep else tab_idle }}">
+                Centros de custo
+            </a>
+        </nav>
+    </div>
+</div>
+
+{% block cadastros_content %}{% endblock %}
+{% endblock %}

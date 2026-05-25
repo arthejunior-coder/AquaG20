@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:  # permite trigger manual pela UI do GitHub
+
+# Cancela runs em curso da mesma branch quando há novo push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest + audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-pass
+          MYSQL_DATABASE: aquag20
+          MYSQL_USER: aquag20
+          MYSQL_PASSWORD: ci-test-pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -pci-root-pass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      # SQLAlchemy URL formato igual ao dev local (.env)
+      DATABASE_URL: mysql+pymysql://aquag20:ci-test-pass@127.0.0.1:3306/aquag20?charset=utf8mb4
+      TEST_DATABASE_URL: mysql+pymysql://aquag20:ci-test-pass@127.0.0.1:3306/aquag20_test?charset=utf8mb4
+      # Secret previsível só para CI — NÃO USAR EM PROD
+      SECRET_KEY: ci-only-secret-do-not-use-in-prod
+      FLASK_APP: wsgi.py
+      # Argon2 mais rápido em CI (suite de auth é integration, sensível à latência)
+      ARGON2_TIME_COST: 1
+      ARGON2_MEMORY_COST: 8192
+      ARGON2_PARALLELISM: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          # 3.12 é estável nos runners; dev local usa 3.14 mas a app suporta 3.12+
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Aguardar MySQL ficar pronto
+        run: |
+          for i in {1..30}; do
+            if mysql -h 127.0.0.1 -u aquag20 -pci-test-pass -e "SELECT 1" >/dev/null 2>&1; then
+              echo "MySQL pronto"
+              break
+            fi
+            echo "Aguardando MySQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Criar database de teste e dar grants
+        run: |
+          mysql -h 127.0.0.1 -u root -pci-root-pass -e "
+            CREATE DATABASE IF NOT EXISTS aquag20_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+            GRANT ALL PRIVILEGES ON aquag20.* TO 'aquag20'@'%';
+            GRANT ALL PRIVILEGES ON aquag20_test.* TO 'aquag20'@'%';
+            FLUSH PRIVILEGES;"
+
+      - name: Importar schema (dev + test)
+        run: |
+          mysql -h 127.0.0.1 -u aquag20 -pci-test-pass aquag20 < files/schema_aguaG20.sql
+          mysql -h 127.0.0.1 -u aquag20 -pci-test-pass aquag20_test < files/schema_aguaG20.sql
+
+      - name: Verificar imports da app (smoke)
+        run: python -c "from app import create_app; app = create_app('test'); print('app OK')"
+
+      - name: Auditoria tenant_filter (lint estático)
+        run: python scripts/audit_tenant_filter.py
+
+      - name: Rodar pytest
+        run: pytest -q --maxfail=5

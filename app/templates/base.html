@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}AquaG20{% endblock %}</title>
+    <link rel="preconnect" href="https://rsms.me/">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    <script defer src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
+    <script>
+        // CSRF header em toda request HTMX — sem isso, todo POST/PUT/DELETE
+        // via HTMX falha com 400 (Flask-WTF CSRF).
+        document.addEventListener('DOMContentLoaded', function () {
+            document.body.addEventListener('htmx:configRequest', function (e) {
+                e.detail.headers['X-CSRFToken'] = document.querySelector('meta[name="csrf-token"]').content;
+            });
+        });
+    </script>
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col">
+
+    {% if current_user.is_authenticated %}
+    {% set papel = current_user.papel.value %}
+    <header class="bg-aqua-700 text-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex h-14 items-center justify-between">
+                <div class="flex items-center gap-8">
+                    <a href="{{ url_for('dashboard.index') }}" class="flex items-center gap-2 font-semibold">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-6 h-6 text-aqua-200">
+                            <path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>
+                        </svg>
+                        <span>AquaG20</span>
+                    </a>
+                    <nav class="hidden md:flex items-center gap-1 text-sm">
+                        {% set nav_active = "bg-aqua-800 text-white" %}
+                        {% set nav_idle   = "text-aqua-100 hover:bg-aqua-800 hover:text-white" %}
+                        <a href="{{ url_for('dashboard.index') }}"
+                           class="px-3 py-1.5 rounded-md {{ nav_active if request.endpoint == 'dashboard.index' else nav_idle }}">Painel</a>
+                        {% if papel in ("admin", "gestor") %}
+                        <a href="{{ url_for('cadastros.index') }}"
+                           class="px-3 py-1.5 rounded-md {{ nav_active if request.endpoint and request.endpoint.startswith('cadastros.') else nav_idle }}">Cadastros</a>
+                        {% endif %}
+                        {% if papel in ("admin", "gestor", "atendimento") %}
+                        <a href="{{ url_for('pool.index') }}"
+                           class="px-3 py-1.5 rounded-md {{ nav_active if request.endpoint and request.endpoint.startswith('pool.') else nav_idle }}">Pool</a>
+                        <a href="{{ url_for('pedidos.lista') }}"
+                           class="px-3 py-1.5 rounded-md {{ nav_active if request.endpoint and request.endpoint.startswith('pedidos.') else nav_idle }}">Pedidos</a>
+                        <a href="{{ url_for('rotas.lista') }}"
+                           class="px-3 py-1.5 rounded-md {{ nav_active if request.endpoint and request.endpoint.startswith('rotas.') else nav_idle }}">Rotas</a>
+                        {% endif %}
+                        {% if papel in ("admin", "financeiro") %}
+                        <a href="{{ url_for('financeiro.index') }}"
+                           class="px-3 py-1.5 rounded-md {{ nav_active if request.endpoint and request.endpoint.startswith('financeiro.') else nav_idle }}">Financeiro</a>
+                        {% endif %}
+                        {% if papel == "admin" %}
+                        <a href="{{ url_for('admin.lista_usuarios') }}"
+                           class="px-3 py-1.5 rounded-md {{ nav_active if request.endpoint and request.endpoint.startswith('admin.') else nav_idle }}">Admin</a>
+                        {% endif %}
+                    </nav>
+                </div>
+                <div class="flex items-center gap-4 text-sm">
+                    <span class="hidden sm:inline text-aqua-100">
+                        {{ current_user.nome }} · <span class="capitalize">{{ papel }}</span>
+                    </span>
+                    <form method="post" action="{{ url_for('auth.logout') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="text-aqua-100 hover:text-white text-sm">Sair</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </header>
+    {% endif %}
+
+    <main class="flex-1">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-6 space-y-2">
+                        {% for category, msg in messages %}
+                            <div class="flash flash-{{ category }}">{{ msg }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

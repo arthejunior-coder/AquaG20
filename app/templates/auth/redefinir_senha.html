@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Nova senha — AquaG20{% endblock %}
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-semibold text-slate-900">Defina a nova senha</h1>
+            <p class="text-sm text-slate-500 mt-2">
+                Mínimo de 8 caracteres. Vai ser usada no próximo login.
+            </p>
+        </div>
+
+        <div class="card p-6">
+            <form method="post" novalidate class="space-y-4">
+                {{ form.hidden_tag() }}
+
+                <div>
+                    <label for="{{ form.senha.id }}" class="form-label">{{ form.senha.label.text }}</label>
+                    {{ form.senha(class="form-input", autofocus=true, autocomplete="new-password") }}
+                    {% for e in form.senha.errors %}<p class="form-error">{{ e }}</p>{% endfor %}
+                </div>
+
+                <div>
+                    <label for="{{ form.confirmacao.id }}" class="form-label">{{ form.confirmacao.label.text }}</label>
+                    {{ form.confirmacao(class="form-input", autocomplete="new-password") }}
+                    {% for e in form.confirmacao.errors %}<p class="form-error">{{ e }}</p>{% endfor %}
+                </div>
+
+                {{ form.submit(class="btn-primary w-full") }}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

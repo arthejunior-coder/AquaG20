@@ -1,0 +1,68 @@
+{% extends "financeiro/_layout.html" %}
+{% block title %}Fluxo de caixa — AquaG20{% endblock %}
+
+{% set meses_nome = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'] %}
+
+{% block financeiro_content %}
+<div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+    <section class="card p-5 bg-emerald-50 border-emerald-200">
+        <p class="text-xs text-emerald-700 uppercase font-semibold tracking-wide">A receber (próximos 30 dias)</p>
+        <p class="text-2xl font-mono mt-2 text-emerald-900">R$ {{ "%.2f"|format(receber_30) }}</p>
+    </section>
+    <section class="card p-5 bg-rose-50 border-rose-200">
+        <p class="text-xs text-rose-700 uppercase font-semibold tracking-wide">A pagar (próximos 30 dias)</p>
+        <p class="text-2xl font-mono mt-2 text-rose-900">R$ {{ "%.2f"|format(pagar_30) }}</p>
+    </section>
+</div>
+
+<section class="card p-5">
+    <h2 class="text-sm font-semibold text-slate-800 mb-3">Fluxo de caixa mensal</h2>
+    {% if meses %}
+    <table class="min-w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+            <tr>
+                <th class="px-3 py-2 text-left">Mês</th>
+                <th class="px-3 py-2 text-right">Receber previsto</th>
+                <th class="px-3 py-2 text-right">Receber realizado</th>
+                <th class="px-3 py-2 text-right">Pagar previsto</th>
+                <th class="px-3 py-2 text-right">Pagar realizado</th>
+                <th class="px-3 py-2 text-right">Saldo realizado</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for m in meses %}
+            {% set saldo = m.receber_realizado - m.pagar_realizado %}
+            <tr class="hover:bg-slate-50">
+                <td class="px-3 py-2 text-slate-700 font-medium">
+                    {{ meses_nome[m.mes - 1] }}/{{ m.ano }}
+                </td>
+                <td class="px-3 py-2 text-right font-mono tabular-nums text-emerald-700">
+                    {{ "%.2f"|format(m.receber_previsto) }}
+                </td>
+                <td class="px-3 py-2 text-right font-mono tabular-nums text-emerald-900 font-semibold">
+                    {{ "%.2f"|format(m.receber_realizado) }}
+                </td>
+                <td class="px-3 py-2 text-right font-mono tabular-nums text-rose-700">
+                    {{ "%.2f"|format(m.pagar_previsto) }}
+                </td>
+                <td class="px-3 py-2 text-right font-mono tabular-nums text-rose-900 font-semibold">
+                    {{ "%.2f"|format(m.pagar_realizado) }}
+                </td>
+                <td class="px-3 py-2 text-right font-mono tabular-nums font-semibold
+                    {{ 'text-emerald-700' if saldo >= 0 else 'text-rose-700' }}">
+                    {{ "%.2f"|format(saldo) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-slate-500 text-center py-6">
+        Nenhum lançamento na janela atual (±6 meses).
+        <a href="{{ url_for('financeiro.novo_lancamento') }}" class="text-aqua-700 hover:text-aqua-900 font-medium">
+            Registrar o primeiro
+        </a>.
+    </p>
+    {% endif %}
+</section>
+{% endblock %}

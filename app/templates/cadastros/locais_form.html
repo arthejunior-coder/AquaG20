@@ -1,0 +1,29 @@
+{% extends "cadastros/_layout.html" %}
+{% from "_macros.html" import form_field %}
+{% set is_new = local is none %}
+{% block title %}{{ "Novo local" if is_new else "Editar " + local.nome }} — AquaG20{% endblock %}
+
+{% block cadastros_content %}
+<div class="mb-6">
+    <a href="{{ url_for('cadastros.lista_locais') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para locais</a>
+    <h1 class="text-xl font-semibold text-slate-900 mt-1">
+        {% if is_new %}Novo local de estoque{% else %}Editar local{% endif %}
+    </h1>
+</div>
+
+<form method="post" novalidate class="space-y-6 max-w-xl">
+    {{ form.hidden_tag() }}
+
+    <section class="card p-5 space-y-4">
+        {{ form_field(form.tipo) }}
+        {{ form_field(form.nome, autofocus=true, placeholder="Ex.: Depósito Central, Caminhão Placa ABC-1234") }}
+        {{ form_field(form.veiculo_id, help="Selecione apenas se este local representa um veículo específico.") }}
+    </section>
+
+    <div class="flex items-center gap-3">
+        {{ form.submit(class="btn-primary") }}
+        <a href="{{ url_for('cadastros.lista_locais') }}" class="btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

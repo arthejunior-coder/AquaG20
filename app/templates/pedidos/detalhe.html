@@ -1,0 +1,143 @@
+{% extends "pedidos/_layout.html" %}
+{% from "_macros.html" import post_form %}
+{% block title %}Pedido #{{ pedido.id }} — AquaG20{% endblock %}
+
+{# Mesma macro do _tabela.html — duplicada aqui pra evitar dependência circular. #}
+{% macro badge_status(status) -%}
+{% set v = status.value %}
+{% set classes = {
+    'aberto': 'bg-sky-50 text-sky-700 border-sky-200',
+    'roteirizado': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'em_entrega': 'bg-amber-50 text-amber-700 border-amber-200',
+    'entregue': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'cancelado': 'bg-slate-100 text-slate-500 border-slate-200',
+}.get(v, 'bg-slate-100 text-slate-700 border-slate-200') %}
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border {{ classes }}">
+    {{ v.replace('_', ' ').title() }}
+</span>
+{%- endmacro %}
+
+{% block pedidos_content %}
+<div class="mb-6">
+    <a href="{{ url_for('pedidos.lista') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para pedidos</a>
+    <div class="flex items-center gap-3 mt-1">
+        <h1 class="text-xl font-semibold text-slate-900">Pedido #{{ pedido.id }}</h1>
+        {{ badge_status(pedido.status) }}
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl">
+    <section class="card p-5 lg:col-span-2">
+        <h2 class="text-sm font-semibold text-slate-800 mb-4">Itens</h2>
+        <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+                <tr>
+                    <th class="px-3 py-2 text-left">Tipo</th>
+                    <th class="px-3 py-2 text-left">Validade pedida</th>
+                    <th class="px-3 py-2 text-right">Solicitado</th>
+                    <th class="px-3 py-2 text-right">Atendido</th>
+                    <th class="px-3 py-2 text-right">Preço</th>
+                    <th class="px-3 py-2 text-right">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for it in pedido.itens %}
+                {% set tipo = tipos_by_id.get(it.tipo_garrafao_id) %}
+                <tr>
+                    <td class="px-3 py-2 text-slate-900">
+                        {{ tipo.nome if tipo else "(tipo #%d)"|format(it.tipo_garrafao_id) }}
+                    </td>
+                    <td class="px-3 py-2 text-slate-700">
+                        {{ it.validade_solicitada.strftime('%d/%m/%Y') if it.validade_solicitada else "—" }}
+                    </td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ it.qtd_solicitada }}</td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums
+                        {{ 'text-slate-400' if it.qtd_atendida == 0 else 'text-emerald-700' }}">
+                        {{ it.qtd_atendida }}
+                    </td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">
+                        {{ "%.2f"|format(it.preco_unitario) if it.preco_unitario is not none else "—" }}
+                    </td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">
+                        {{ "%.2f"|format((it.preco_unitario or 0) * it.qtd_solicitada) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="border-t-2 border-slate-200 bg-slate-50">
+                    <td colspan="2" class="px-3 py-2 text-right font-semibold text-slate-700">Totais</td>
+                    <td class="px-3 py-2 text-right font-mono font-semibold">{{ pedido.qtd_total }}</td>
+                    <td class="px-3 py-2"></td>
+                    <td class="px-3 py-2"></td>
+                    <td class="px-3 py-2 text-right font-mono font-semibold">
+                        R$ {{ "%.2f"|format(pedido.valor_total) }}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </section>
+
+    <aside class="space-y-4">
+        <section class="card p-5">
+            <h2 class="text-sm font-semibold text-slate-800 mb-3">Cliente</h2>
+            <p class="font-medium text-slate-900">{{ cliente.nome if cliente else "(cliente removido)" }}</p>
+            {% if cliente %}
+                <p class="text-xs text-slate-500 capitalize">{{ cliente.tipo.value }}</p>
+                {% if cliente.telefone %}<p class="text-sm text-slate-700 mt-2">{{ cliente.telefone }}</p>{% endif %}
+                {% if cliente.cidade %}<p class="text-xs text-slate-500">{{ cliente.cidade }}{% if cliente.uf %}/{{ cliente.uf }}{% endif %}</p>{% endif %}
+            {% endif %}
+        </section>
+
+        <section class="card p-5">
+            <h2 class="text-sm font-semibold text-slate-800 mb-3">Pedido</h2>
+            <dl class="space-y-2 text-sm">
+                <div class="flex justify-between"><dt class="text-slate-500">Política</dt>
+                    <dd class="text-slate-800 capitalize">{{ pedido.politica_permuta.value }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Pagamento</dt>
+                    <dd class="text-slate-800 capitalize">{{ pedido.forma_pagamento.value if pedido.forma_pagamento else "—" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Canal</dt>
+                    <dd class="text-slate-800 capitalize">{{ pedido.canal.value if pedido.canal else "—" }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Criado</dt>
+                    <dd class="text-slate-800">{{ pedido.criado_em.strftime('%d/%m/%Y %H:%M') if pedido.criado_em else "—" }}</dd></div>
+            </dl>
+            {% if pedido.observacao %}
+                <p class="mt-4 text-sm text-slate-700 italic border-t pt-3">{{ pedido.observacao }}</p>
+            {% endif %}
+        </section>
+
+        {# --- Transições de estado --- #}
+        {% set proximos = {
+            'aberto': [('roteirizado', 'Roteirizar')],
+        }.get(pedido.status.value, []) %}
+        {% set pode_entregar = pedido.status.value in ('roteirizado', 'em_entrega') %}
+
+        {% if proximos or pode_entregar or pedido.status.value in ('aberto', 'roteirizado') %}
+        <section class="card p-5">
+            <h2 class="text-sm font-semibold text-slate-800 mb-3">Ações</h2>
+            <div class="flex flex-col gap-2">
+                {% for novo_status, label in proximos %}
+                    <form method="post" action="{{ url_for('pedidos.transicionar_status', id=pedido.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="novo" value="{{ novo_status }}">
+                        <button type="submit" class="btn-primary w-full">{{ label }}</button>
+                    </form>
+                {% endfor %}
+                {% if pode_entregar %}
+                    <a href="{{ url_for('pedidos.entregar', id=pedido.id) }}"
+                       class="btn-primary w-full text-center">Registrar entrega</a>
+                {% endif %}
+                {% if pedido.status.value in ('aberto', 'roteirizado') and current_user.papel.value in ('admin', 'gestor') %}
+                <form method="post" action="{{ url_for('pedidos.cancelar', id=pedido.id) }}"
+                      onsubmit="return confirm('Cancelar pedido #{{ pedido.id }}?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-secondary w-full text-rose-700">Cancelar pedido</button>
+                </form>
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}

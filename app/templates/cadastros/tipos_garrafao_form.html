@@ -1,0 +1,33 @@
+{% extends "cadastros/_layout.html" %}
+{% from "_macros.html" import form_field, form_checkbox %}
+{% set is_new = tipo is none %}
+{% block title %}{{ "Novo tipo de garrafão" if is_new else "Editar " + tipo.nome }} — AquaG20{% endblock %}
+
+{% block cadastros_content %}
+<div class="mb-6">
+    <a href="{{ url_for('cadastros.lista_tipos_garrafao') }}"
+       class="text-sm text-slate-500 hover:text-slate-700">&larr; Voltar para tipos</a>
+    <h1 class="text-xl font-semibold text-slate-900 mt-1">
+        {% if is_new %}Novo tipo de garrafão{% else %}Editar tipo{% endif %}
+    </h1>
+</div>
+
+<form method="post" novalidate class="space-y-6 max-w-2xl">
+    {{ form.hidden_tag() }}
+
+    <section class="card p-5 space-y-4">
+        {{ form_field(form.nome, autofocus=true, placeholder="Ex.: 20L Policarbonato") }}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {{ form_field(form.material) }}
+            {{ form_field(form.capacidade_litros) }}
+            {{ form_field(form.valor_reposicao, help="Crítico para o KPI de reposição (R$/mês).") }}
+        </div>
+        {{ form_checkbox(form.ativo) }}
+    </section>
+
+    <div class="flex items-center gap-3">
+        {{ form.submit(class="btn-primary") }}
+        <a href="{{ url_for('cadastros.lista_tipos_garrafao') }}" class="btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

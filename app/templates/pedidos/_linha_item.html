@@ -1,0 +1,30 @@
+{# 1 linha do form de itens. Usado em form.html e via HTMX em /pedidos/itens/nova-linha. #}
+<tr data-row-idx="{{ linha.idx }}">
+    <td class="px-2 py-2">
+        <select name="itens-{{ linha.idx }}-tipo_garrafao_id" class="form-input">
+            <option value="">—</option>
+            {% for t in tipos %}
+                <option value="{{ t.id }}" {% if linha.tipo_garrafao_id|string == t.id|string %}selected{% endif %}>
+                    {{ t.nome }} ({{ t.capacidade_litros }}L)
+                </option>
+            {% endfor %}
+        </select>
+    </td>
+    <td class="px-2 py-2">
+        <input type="number" min="1" name="itens-{{ linha.idx }}-quantidade"
+               value="{{ linha.quantidade }}" class="form-input w-24" placeholder="qtd"/>
+    </td>
+    <td class="px-2 py-2">
+        <input type="date" name="itens-{{ linha.idx }}-validade_solicitada"
+               value="{{ linha.validade_solicitada }}" class="form-input"/>
+    </td>
+    <td class="px-2 py-2">
+        <input type="number" step="0.01" min="0" name="itens-{{ linha.idx }}-preco_unitario"
+               value="{{ linha.preco_unitario }}" class="form-input w-28" placeholder="0,00"/>
+    </td>
+    <td class="px-2 py-2 text-right">
+        <button type="button"
+                class="text-rose-600 hover:text-rose-800 text-xs"
+                onclick="this.closest('tr').remove()">Remover</button>
+    </td>
+</tr>
