@@ -245,3 +245,23 @@ Badge no README (após primeira execução):
 ```markdown
 ![CI](https://github.com/<voce>/aquag20/actions/workflows/ci.yml/badge.svg)
 ```
+
+## Dashboards Grafana
+
+Em [dashboards/grafana/](dashboards/grafana/):
+
+- `aquag20-operations.json` — dashboard operacional com 9 painéis (requests/seg por status, latência p50/p95/p99, taxa de erro 5xx %, top endpoints, erros por endpoint).
+- `prometheus.yml.example` — config de scrape para o Prometheus apontar pro `/metrics` da app.
+
+### Como importar
+
+1. Garanta que a app está com observabilidade ligada (`OBSERVABILITY_METRICS_ENABLED=true`, default em `ProdConfig`).
+2. Configure o Prometheus pra fazer scrape (veja `prometheus.yml.example` — substitua os hosts pelos seus).
+3. No Grafana: **Dashboards → New → Import → Upload JSON file** → escolha `aquag20-operations.json`.
+4. Quando pedir, selecione seu datasource Prometheus.
+
+Métricas usadas (expostas pelo `/metrics`):
+- `aquag20_requests_total{method, endpoint, status}` — Counter
+- `aquag20_request_latency_seconds{method, endpoint}` — Histogram
+
+O dashboard está blindado por testes (`tests/test_grafana_dashboard.py`) que verificam: JSON parseável, `uid` estável, painéis presentes, e — **importante** — todas as queries referenciam só métricas que a app realmente expõe. Renomear um Counter na app vai fazer o CI quebrar antes do deploy quebrar o dashboard em prod.

@@ -1,0 +1,37 @@
+# Exemplo de configuração de scrape do Prometheus para o AquaG20.
+#
+# Coloque este arquivo no seu Prometheus (geralmente em /etc/prometheus/prometheus.yml
+# ou via Docker volume) e reinicie/recarregue (`kill -HUP <prometheus_pid>` ou
+# `curl -X POST http://prometheus:9090/-/reload` se reload-on-http estiver ativo).
+#
+# Pré-requisitos na app:
+#   - OBSERVABILITY_METRICS_ENABLED=true (ProdConfig já faz isso)
+#   - Endpoint /metrics acessível pelo Prometheus (mesmo network, sem firewall)
+#   - /metrics é PÚBLICO (sem auth/CSRF) — em prod, restrinja por IP no nginx/LB
+
+global:
+  scrape_interval: 15s        # cadência geral
+  scrape_timeout: 10s
+  external_labels:
+    cluster: aquag20-prod
+    region: us-east-1         # ajuste
+
+scrape_configs:
+  # ---- AquaG20 app ----
+  - job_name: aquag20
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      # Substitua pelo(s) host(s) reais. Se gunicorn rodar com -w 4 atrás
+      # de nginx, exponha cada worker individualmente — ou use SD (DNS/k8s).
+      - targets:
+          - aquag20-web-1.internal:5000
+          - aquag20-web-2.internal:5000
+        labels:
+          env: prod
+          app: aquag20
+
+  # ---- Prometheus de si mesmo (útil pra meta-monitoring) ----
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
