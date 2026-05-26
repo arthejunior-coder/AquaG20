@@ -39,6 +39,12 @@ import os
 import sys
 from pathlib import Path
 
+# Windows console default é CP1252/CP850, que quebra em chars como →, —, etc.
+# Força UTF-8 no stdout/stderr pra evitar UnicodeEncodeError em prints.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 _DEFAULT_CLIENT_SECRETS = "gdrive_credentials.json"
 _DEFAULT_TOKEN_FILE = "gdrive_token.json"
