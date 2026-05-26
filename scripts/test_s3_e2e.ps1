@@ -83,7 +83,12 @@ Write-Host "`n==> 6/7  Confirmando no bucket via boto3.list_objects_v2" -Foregro
 from dotenv import load_dotenv
 load_dotenv()
 import os, boto3
-client = boto3.client('s3')
+# Respeita S3_BACKUP_ENDPOINT_URL pra suportar B2/OCI/R2 etc.
+kwargs = {}
+endpoint = os.environ.get('S3_BACKUP_ENDPOINT_URL')
+if endpoint:
+    kwargs['endpoint_url'] = endpoint
+client = boto3.client('s3', **kwargs)
 bucket = os.environ['S3_BACKUP_BUCKET']
 prefix = os.environ.get('S3_BACKUP_PREFIX', 'aquag20-backups/')
 resp = client.list_objects_v2(Bucket=bucket, Prefix=prefix + '$fakeName')
@@ -92,7 +97,9 @@ if not items:
     print('NAO ENCONTRADO no bucket — sync silenciosamente nao subiu.')
     raise SystemExit(1)
 for obj in items:
-    print(f\"  s3://{bucket}/{obj['Key']}  ({obj['Size']} bytes, {obj['StorageClass']})\")
+    # StorageClass nem sempre vem (R2/B2 podem omitir) — usa .get com fallback
+    sc = obj.get('StorageClass', '-')
+    print(f\"  s3://{bucket}/{obj['Key']}  ({obj['Size']} bytes, {sc})\")
 "@
 if ($LASTEXITCODE -ne 0) { Write-Host "Verificacao falhou." -ForegroundColor Red; exit 1 }
 
@@ -102,7 +109,11 @@ Write-Host "`n==> 7/7  Cleanup (apaga local + remoto)" -ForegroundColor Cyan
 from dotenv import load_dotenv
 load_dotenv()
 import os, boto3
-client = boto3.client('s3')
+kwargs = {}
+endpoint = os.environ.get('S3_BACKUP_ENDPOINT_URL')
+if endpoint:
+    kwargs['endpoint_url'] = endpoint
+client = boto3.client('s3', **kwargs)
 bucket = os.environ['S3_BACKUP_BUCKET']
 prefix = os.environ.get('S3_BACKUP_PREFIX', 'aquag20-backups/')
 client.delete_object(Bucket=bucket, Key=prefix + '$fakeName')
