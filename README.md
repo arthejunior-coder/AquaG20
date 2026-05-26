@@ -1,5 +1,7 @@
 # AquaG20
 
+![CI](https://github.com/arthejunior-coder/AquaG20/actions/workflows/ci.yml/badge.svg)
+
 SaaS multi-tenant para distribuidores de água (garrafões 20L). Plataforma de gestão do pool de vasilhames em regime de permuta, controle por faixa de validade, atendimento, pedidos e financeiro.
 
 Plano completo da implementação em `C:\Users\Usuário\.claude\plans\sim-lazy-crab.md`.
