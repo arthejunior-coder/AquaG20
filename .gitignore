@@ -46,6 +46,10 @@ flask_run.log
 backups/
 *.sql.gz
 
+# Credenciais Google Drive OAuth (sync_backups_gdrive.py)
+gdrive_credentials.json
+gdrive_token.json
+
 # IDE
 .vscode/
 .idea/

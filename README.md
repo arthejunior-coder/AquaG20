@@ -293,6 +293,79 @@ Agendamento — rode logo após `backup_db.py`:
 - Skip por nome de arquivo (não por hash): backups têm timestamp único, sobrescrever seria perda silenciosa.
 - Sem flag `--s3-retention-days`, **nada é deletado do bucket** — estratégia segura por default. Off-site deve sobreviver a um attacker que apaga local + rotação.
 
+## Off-site backup (Google Drive) — alternativa gratuita ao S3
+
+Script `scripts/sync_backups_gdrive.py` faz o mesmo que o do S3, mas pra uma pasta do Google Drive. Vantagens: **gratuito até 15 GB**, UI familiar pra browsing/restore. Desvantagens vs S3: setup OAuth um pouco mais chato (browser na 1ª vez), sem object lock (proteção anti-ransomware mais fraca).
+
+Quando usar: dev solo, MVP, sem requisito de compliance. Migre pra S3 quando entrar dinheiro de cliente ou volume > 2 TB.
+
+### Setup uma vez
+
+**1) Criar projeto no Google Cloud Console:**
+- Acesse https://console.cloud.google.com → **Select a project** → **New Project** → nome `aquag20-backups` (ou qualquer outro) → Create.
+- Na barra de busca topo: digite "**Google Drive API**" → clique no resultado → **Enable**.
+
+**2) Criar OAuth client:**
+- Menu lateral → **APIs & Services** → **OAuth consent screen**:
+  - **User type**: External → Create
+  - **App name**: `AquaG20 Backup` / **User support email**: seu email / **Developer contact**: seu email → Save and continue
+  - **Scopes**: pule (Save and continue)
+  - **Test users**: clique **+ Add Users** → adicione seu próprio email Gmail → Save and continue
+- Menu lateral → **Credentials** → **+ Create Credentials** → **OAuth client ID**:
+  - **Application type**: **Desktop app**
+  - **Name**: `AquaG20 Desktop` → Create
+  - **Download JSON** → salve como `gdrive_credentials.json` na raiz do projeto (`c:\AquaG20\gdrive_credentials.json`).
+  - Esse arquivo está no `.gitignore` — não vai pra git.
+
+**3) Criar pasta no Drive e pegar o ID:**
+- Acesse https://drive.google.com → botão **+ New** → **New folder** → nome `AquaG20 Backups` → Create.
+- Abra a pasta. A URL fica `https://drive.google.com/drive/folders/<ID_LONGO>`.
+- Copie esse `<ID_LONGO>`.
+
+**4) Preencher `.env`:**
+
+```bash
+GDRIVE_FOLDER_ID=1aBcDeFgHiJkLmNoPqRsTuVwXyZ123456     # o ID que você copiou
+# Opcionais (defaults funcionam):
+# GDRIVE_CLIENT_SECRETS=gdrive_credentials.json
+# GDRIVE_TOKEN_FILE=gdrive_token.json
+```
+
+**5) Primeira execução (INTERATIVA — abre browser):**
+
+```powershell
+python scripts\sync_backups_gdrive.py --dry-run
+```
+
+Vai abrir seu browser → "Sign in with Google" → escolha sua conta → **"Google hasn't verified this app"** clique **Advanced** → **Go to AquaG20 Backup (unsafe)** (é "unsafe" porque é seu app não publicado — normal) → **Continue** → **Continue** novamente pra dar permissão de Drive.
+
+Depois disso é gerado `gdrive_token.json` (também gitignored) com refresh token. **Roda headless pra sempre** — só vai precisar repetir esse passo se você revogar o acesso no Drive.
+
+### Uso normal
+
+```powershell
+# Upload de tudo que ainda não está na pasta
+python scripts\sync_backups_gdrive.py
+
+# Dry-run
+python scripts\sync_backups_gdrive.py --dry-run
+
+# Rotação (default: nada é apagado — backups acumulam)
+python scripts\sync_backups_gdrive.py --gdrive-retention-days 365
+```
+
+### Agendamento (Windows Task Scheduler)
+
+Igual ao do S3 — uma tarefa pra `backup_db.py` às 2h, outra pra `sync_backups_gdrive.py` às 2h05. Detalhes na seção do S3 acima (mesmos passos, só troca o nome do script).
+
+### Decisões
+
+- Scope `drive.file` — app só vê arquivos que ELA criou. Não enxerga seus outros arquivos do Drive. Princípio do menor privilégio.
+- Skip por **filename** (não hash) — backups têm timestamp único.
+- Resumable upload (`MediaFileUpload(resumable=True)`) — sobrevive a glitches de rede em arquivos grandes.
+- `gdrive_credentials.json` e `gdrive_token.json` no `.gitignore`. O token contém refresh_token = acesso permanente à pasta; cuide bem dele.
+- Sem `--gdrive-retention-days`, **nada é apagado**. Default seguro contra ransomware/conta roubada (limitado — atacante com seu cookie do Drive ainda consegue apagar via web).
+
 ## CI/CD (GitHub Actions)
 
 Pipeline em [.github/workflows/ci.yml](.github/workflows/ci.yml). Roda em push/PR para `main`/`master`/`develop` (ou via `workflow_dispatch` manualmente).
