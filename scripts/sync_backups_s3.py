@@ -1,23 +1,35 @@
-"""Sync de backups locais (.sql.gz) pra um bucket S3 — off-site backup.
+"""Sync de backups locais (.sql.gz) pra um bucket S3-compatível — off-site backup.
+
+Compatível com qualquer provider S3-API: AWS S3, Backblaze B2, Oracle OCI,
+Cloudflare R2, Wasabi, MinIO. Basta setar S3_BACKUP_ENDPOINT_URL apontando
+pro endpoint do provider (vazio = AWS S3 nativo).
 
 Uso:
     python scripts\\sync_backups_s3.py                                # default ./backups → S3
     python scripts\\sync_backups_s3.py --source D:\\backups
     python scripts\\sync_backups_s3.py --dry-run                      # mostra sem enviar
-    python scripts\\sync_backups_s3.py --s3-retention-days 365        # rotaciona no S3
+    python scripts\\sync_backups_s3.py --s3-retention-days 365        # rotaciona no bucket
 
 Config via env (ou .env):
     S3_BACKUP_BUCKET            obrigatório — nome do bucket
     S3_BACKUP_PREFIX            opcional, default "aquag20-backups/"
     S3_BACKUP_STORAGE_CLASS     opcional, default "STANDARD"
-                                (use STANDARD_IA / GLACIER_IR pra economizar)
+                                (AWS: STANDARD_IA/GLACIER_IR pra economizar.
+                                Vazio "" pula o param — útil pra B2/R2 que
+                                não suportam o conceito ou erram com nomes AWS)
+    S3_BACKUP_ENDPOINT_URL      opcional — URL do provider S3-compat.
+                                Vazio = AWS. Exemplos:
+                                  B2:  https://s3.us-west-002.backblazeb2.com
+                                  OCI: https://<ns>.compat.objectstorage.<region>.oraclecloud.com
+                                  R2:  https://<acct>.r2.cloudflarestorage.com
     AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION
-                                credenciais boto3 padrão (ou instance profile
-                                se rodar em EC2/ECS)
+                                credenciais boto3 padrão. Pra B2/OCI/R2,
+                                use as keys equivalentes do provider
+                                (mesmas envs, mesma API).
 
 Idempotente: pula arquivos cujo nome já existe no bucket (não sobrescreve).
 Estratégia segura — backups locais são imutáveis (timestamp no nome).
-Server-side encryption AES256 ativada por padrão.
+Server-side encryption AES256 ativada por padrão (AWS/B2; R2 ignora silenciosamente).
 
 Agendamento sugerido (logo após backup_db.py, 2h05):
     Linux/cron:  5 2 * * * /path/python /path/scripts/sync_backups_s3.py
@@ -69,12 +81,17 @@ def list_remote_keys(client, bucket: str, prefix: str) -> set[str]:
 def upload_file(
     client, local_path: Path, bucket: str, key: str, storage_class: str,
 ) -> None:
-    """Faz upload com SSE AES256 + storage class configurada."""
+    """Faz upload com SSE AES256 + storage class configurada.
+
+    Se `storage_class` for vazio (""), pula o param — compatibilidade com
+    providers que não suportam StorageClass ou usam nomes diferentes (B2, R2).
+    """
     extra_args = {
         "ServerSideEncryption": "AES256",
-        "StorageClass": storage_class,
         "ContentType": "application/gzip",
     }
+    if storage_class:
+        extra_args["StorageClass"] = storage_class
     client.upload_file(str(local_path), bucket, key, ExtraArgs=extra_args)
 
 
@@ -117,6 +134,7 @@ def sync(
     bucket: str | None = None,
     prefix: str | None = None,
     storage_class: str | None = None,
+    endpoint_url: str | None = None,
     s3_retention_days: int | None = None,
     dry_run: bool = False,
     client=None,
@@ -130,9 +148,12 @@ def sync(
     prefix = _normalize_prefix(
         prefix if prefix is not None else os.environ.get("S3_BACKUP_PREFIX", _DEFAULT_PREFIX)
     )
-    storage_class = storage_class or os.environ.get(
-        "S3_BACKUP_STORAGE_CLASS", _DEFAULT_STORAGE_CLASS
-    )
+    # storage_class pode ser "" (string vazia) pra desabilitar — usar getenv
+    # direto preserva "" diferente de None.
+    if storage_class is None:
+        storage_class = os.environ.get("S3_BACKUP_STORAGE_CLASS", _DEFAULT_STORAGE_CLASS)
+
+    endpoint_url = endpoint_url or os.environ.get("S3_BACKUP_ENDPOINT_URL") or None
 
     source_dir = Path(source_dir)
     locals_ = list_local_backups(source_dir)
@@ -146,10 +167,16 @@ def sync(
         except ImportError:
             print("ERRO: boto3 não instalado. Rode: pip install boto3", file=sys.stderr)
             return 3
-        client = boto3.client("s3")
+        client_kwargs = {}
+        if endpoint_url:
+            client_kwargs["endpoint_url"] = endpoint_url
+        client = boto3.client("s3", **client_kwargs)
 
-    print(f"Bucket: s3://{bucket}/{prefix}  (storage class: {storage_class})")
-    print(f"Source: {source_dir}  ({len(locals_)} arquivo(s) local)")
+    sc_label = storage_class or "(omitido)"
+    provider = endpoint_url or "AWS S3"
+    print(f"Provider: {provider}")
+    print(f"Bucket:   s3://{bucket}/{prefix}  (storage class: {sc_label})")
+    print(f"Source:   {source_dir}  ({len(locals_)} arquivo(s) local)")
 
     remote_keys = list_remote_keys(client, bucket, prefix)
     print(f"Remote: {len(remote_keys)} arquivo(s) já no bucket.")
@@ -191,7 +218,11 @@ def main() -> int:
     p.add_argument("--bucket", help="Override S3_BACKUP_BUCKET.")
     p.add_argument("--prefix", help="Override S3_BACKUP_PREFIX (default 'aquag20-backups/').")
     p.add_argument("--storage-class",
-                   help="Override S3_BACKUP_STORAGE_CLASS (STANDARD/STANDARD_IA/GLACIER_IR/etc).")
+                   help="Override S3_BACKUP_STORAGE_CLASS (STANDARD/STANDARD_IA/GLACIER_IR/etc). "
+                        "Passe string vazia pra desabilitar em providers que não suportam.")
+    p.add_argument("--endpoint-url",
+                   help="Override S3_BACKUP_ENDPOINT_URL — URL do provider S3-compat "
+                        "(B2/OCI/R2/Wasabi/MinIO). Sem flag = AWS S3.")
     p.add_argument("--s3-retention-days", type=int,
                    help="Se passado, apaga objetos no bucket mais antigos que N dias. "
                         "Sem flag, backups acumulam indefinidamente (default seguro).")
@@ -204,6 +235,7 @@ def main() -> int:
         bucket=args.bucket,
         prefix=args.prefix,
         storage_class=args.storage_class,
+        endpoint_url=args.endpoint_url,
         s3_retention_days=args.s3_retention_days,
         dry_run=args.dry_run,
     )

@@ -238,6 +238,107 @@ class TestSync:
         assert client.uploads[0]["bucket"] == "env-bucket"
         assert client.uploads[0]["key"].startswith("env-prefix/")
 
+    def test_storage_class_vazio_omite_param(self, tmp_path):
+        """Compatibilidade B2/R2 — passar "" desabilita StorageClass no ExtraArgs."""
+        self._make_local_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        sync(
+            source_dir=tmp_path, bucket="my-bucket",
+            storage_class="",  # explicitamente vazio
+            client=client,
+        )
+        extra = client.uploads[0]["extra_args"]
+        assert "StorageClass" not in extra
+        # SSE e ContentType continuam:
+        assert extra["ServerSideEncryption"] == "AES256"
+        assert extra["ContentType"] == "application/gzip"
+
+    def test_storage_class_env_vazio_omite_param(self, tmp_path, monkeypatch):
+        """S3_BACKUP_STORAGE_CLASS=  no .env também desabilita."""
+        monkeypatch.setenv("S3_BACKUP_STORAGE_CLASS", "")
+        self._make_local_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        sync(source_dir=tmp_path, bucket="my-bucket", client=client)
+        assert "StorageClass" not in client.uploads[0]["extra_args"]
+
+
+# ---------------------------------------------------------------------------
+
+
+class TestEndpointURL:
+    """Plumbing do endpoint_url — pra suporte a B2/OCI/R2/MinIO."""
+
+    def test_endpoint_url_passado_pra_boto3_client(self, tmp_path, monkeypatch):
+        """Quando endpoint_url é setado, boto3.client('s3') recebe o param."""
+        # Cria 1 arquivo local pra forçar instanciação do client
+        from scripts.sync_backups_s3 import sync
+        p = tmp_path / "aquag20-20260525-000000.sql.gz"
+        with gzip.open(p, "wb") as f:
+            f.write(b"dump")
+
+        captured_kwargs = {}
+
+        class _FakeBoto3:
+            @staticmethod
+            def client(service_name, **kwargs):
+                captured_kwargs["service"] = service_name
+                captured_kwargs.update(kwargs)
+                return FakeS3Client()
+
+        monkeypatch.setitem(__import__("sys").modules, "boto3", _FakeBoto3)
+
+        sync(
+            source_dir=tmp_path, bucket="my-bucket",
+            endpoint_url="https://s3.us-west-002.backblazeb2.com",
+            # client=None — força criar via boto3
+        )
+        assert captured_kwargs["service"] == "s3"
+        assert captured_kwargs["endpoint_url"] == "https://s3.us-west-002.backblazeb2.com"
+
+    def test_sem_endpoint_url_nao_passa_kwarg(self, tmp_path, monkeypatch):
+        """Sem endpoint_url, boto3.client é chamado sem kwarg endpoint_url (AWS default)."""
+        from scripts.sync_backups_s3 import sync
+        p = tmp_path / "aquag20-20260525-000000.sql.gz"
+        with gzip.open(p, "wb") as f:
+            f.write(b"dump")
+
+        captured_kwargs = {}
+
+        class _FakeBoto3:
+            @staticmethod
+            def client(service_name, **kwargs):
+                captured_kwargs["service"] = service_name
+                captured_kwargs.update(kwargs)
+                return FakeS3Client()
+
+        monkeypatch.delenv("S3_BACKUP_ENDPOINT_URL", raising=False)
+        monkeypatch.setitem(__import__("sys").modules, "boto3", _FakeBoto3)
+
+        sync(source_dir=tmp_path, bucket="my-bucket")
+        # endpoint_url NÃO deve aparecer nos kwargs (deixa boto3 usar AWS default)
+        assert "endpoint_url" not in captured_kwargs
+
+    def test_endpoint_url_do_env(self, tmp_path, monkeypatch):
+        """Lê S3_BACKUP_ENDPOINT_URL do .env quando não passado por arg."""
+        from scripts.sync_backups_s3 import sync
+        p = tmp_path / "aquag20-20260525-000000.sql.gz"
+        with gzip.open(p, "wb") as f:
+            f.write(b"dump")
+
+        captured_kwargs = {}
+
+        class _FakeBoto3:
+            @staticmethod
+            def client(service_name, **kwargs):
+                captured_kwargs.update(kwargs)
+                return FakeS3Client()
+
+        monkeypatch.setenv("S3_BACKUP_ENDPOINT_URL", "https://oci.example.com")
+        monkeypatch.setitem(__import__("sys").modules, "boto3", _FakeBoto3)
+
+        sync(source_dir=tmp_path, bucket="my-bucket")
+        assert captured_kwargs["endpoint_url"] == "https://oci.example.com"
+
 
 # ---------------------------------------------------------------------------
 

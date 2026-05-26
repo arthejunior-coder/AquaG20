@@ -218,45 +218,135 @@ Agendamento sugerido (todo dia 2h da manhã):
 - Rotação por `mtime` (não confia no nome — protege contra timezone/drift).
 - Para off-site backup, use o script dedicado abaixo (sem dependência do aws CLI — usa boto3).
 
-## Off-site backup (S3)
+## Off-site backup (S3-compatível: AWS / Backblaze B2 / Oracle OCI / Cloudflare R2 / MinIO)
 
-Script `scripts/sync_backups_s3.py` envia os `.sql.gz` locais pra um bucket S3 — proteção contra incêndio/ransomware no servidor. Idempotente: pula arquivos cujo nome já existe no bucket (não retransmite).
+Script `scripts/sync_backups_s3.py` envia os `.sql.gz` locais pra um bucket S3 — proteção contra incêndio/ransomware no servidor. Idempotente: pula arquivos cujo nome já existe no bucket.
 
-Pré-requisitos:
+**Mesmo script serve qualquer provider S3-compatível** — basta setar `S3_BACKUP_ENDPOINT_URL` apontando pro provider escolhido. Sem ele, vai pra AWS S3 nativo.
 
-1. Bucket S3 criado (ative **versioning** + **block public access** + opcionalmente **object lock** pra anti-ransomware).
-2. IAM user/role com policy mínima:
+### Qual provider escolher
 
+| | **Backblaze B2** ⭐ | **Oracle OCI** | **AWS S3** | **Cloudflare R2** |
+|---|---|---|---|---|
+| Free tier | 10 GB permanente | **20 GB permanente** + 10 GB Archive | 5 GB / 12 meses | 10 GB permanente |
+| Custo/GB/mês (pago) | **$0.006** | $0.0255 | $0.023 | $0.015 |
+| Egress | $0.01/GB | 10 TB free/mês | $0.09/GB | **$0** |
+| DC Brasil | ❌ (EUA/EU) | ✅ sa-saopaulo-1 | ✅ sa-east-1 | ❌ (Atlanta) |
+| Setup | **5 min** | 15 min, UI confusa | 10 min | 10 min |
+| Object Lock | ✅ | ✅ | ✅ | ✅ |
+
+**Recomendação pro caso solo-dev/MVP**: Backblaze B2 — mais simples, mais barato, S3-compat, sem vendor lock-in.
+
+### Setup por provider
+
+<details>
+<summary><strong>Backblaze B2</strong> (5 min — recomendado)</summary>
+
+1. https://www.backblaze.com/b2/sign-up.html — conta grátis (10 GB permanente)
+2. **My Account → App Keys** → **Add a New Application Key**:
+   - Name: `aquag20-backup`
+   - Allow access to: **All buckets** (ou só o seu se já criou)
+   - Type of Access: **Read and Write**
+   - Create New Key → **copie agora** (mostra 1x só):
+     - `keyID` (vai como `AWS_ACCESS_KEY_ID`)
+     - `applicationKey` (vai como `AWS_SECRET_ACCESS_KEY`)
+3. **Buckets → Create a Bucket**:
+   - Name: `aquag20-backups-arthejunior` (precisa ser globalmente único)
+   - Files in Bucket: **Private**
+   - Default Encryption: **Enable** (SSE-B2)
+   - Object Lock: **Enable** + Compliance mode se quiser anti-ransomware
+4. Veja o endpoint do bucket (mostra na info do bucket, algo tipo `s3.us-west-002.backblazeb2.com`)
+5. `.env`:
+```bash
+S3_BACKUP_BUCKET=aquag20-backups-arthejunior
+S3_BACKUP_ENDPOINT_URL=https://s3.us-west-002.backblazeb2.com
+S3_BACKUP_STORAGE_CLASS=                      # vazio — B2 não usa StorageClass
+AWS_ACCESS_KEY_ID=<keyID do B2>
+AWS_SECRET_ACCESS_KEY=<applicationKey do B2>
+AWS_REGION=us-west-002                         # região do endpoint
+```
+</details>
+
+<details>
+<summary><strong>Oracle OCI</strong> (15 min — free tier mais generoso)</summary>
+
+1. https://signup.cloud.oracle.com — Always Free tier (20 GB Object + 10 GB Archive permanente)
+2. **Object Storage → Buckets → Create Bucket** na compartment `root`:
+   - Name: `aquag20-backups`
+   - Storage tier: Standard (ou Archive pra retenção longa)
+3. Na info do bucket, copie o **Namespace** (string tipo `axqz3lkqwxyz`)
+4. **Identity → Users → Create User**:
+   - Name: `aquag20-backup-uploader`
+   - Type: IAM (não Federated)
+5. Atribua a política mínima (Identity → Policies → Create Policy):
+```
+Allow user aquag20-backup-uploader to manage object-family in compartment id <COMPARTMENT_OCID> where target.bucket.name='aquag20-backups'
+```
+6. Volte no user → **Customer Secret Keys** → Generate → copie agora (mostra 1x):
+   - `Access Key` (vai como `AWS_ACCESS_KEY_ID`)
+   - `Secret Key` (vai como `AWS_SECRET_ACCESS_KEY`)
+7. `.env`:
+```bash
+S3_BACKUP_BUCKET=aquag20-backups
+S3_BACKUP_ENDPOINT_URL=https://<NAMESPACE>.compat.objectstorage.sa-saopaulo-1.oraclecloud.com
+S3_BACKUP_STORAGE_CLASS=                      # vazio — OCI usa storage tier no bucket, não por objeto
+AWS_ACCESS_KEY_ID=<Customer Access Key>
+AWS_SECRET_ACCESS_KEY=<Customer Secret Key>
+AWS_REGION=sa-saopaulo-1
+```
+</details>
+
+<details>
+<summary><strong>Cloudflare R2</strong> (10 min — egress zero)</summary>
+
+1. https://dash.cloudflare.com → R2 → Activate (pede cartão, mas 10 GB free permanente)
+2. **R2 → Create bucket** → Name: `aquag20-backups`
+3. Na sidebar → **Manage R2 API Tokens** → Create API Token:
+   - Permissions: **Object Read & Write**
+   - Specify bucket: `aquag20-backups`
+   - TTL: Forever
+   - Copie: `Access Key ID` + `Secret Access Key` + `Endpoint for S3 Clients`
+4. `.env`:
+```bash
+S3_BACKUP_BUCKET=aquag20-backups
+S3_BACKUP_ENDPOINT_URL=https://<account_id>.r2.cloudflarestorage.com
+S3_BACKUP_STORAGE_CLASS=                      # vazio — R2 só tem 1 tier
+AWS_ACCESS_KEY_ID=<R2 access key>
+AWS_SECRET_ACCESS_KEY=<R2 secret key>
+AWS_REGION=auto                                # R2 ignora region
+```
+</details>
+
+<details>
+<summary><strong>AWS S3</strong> (10 min — standard da indústria)</summary>
+
+1. https://aws.amazon.com → Create AWS Account
+2. **S3 → Create bucket** → name único, region `sa-east-1`, Block all public access ✅, Versioning ✅
+3. **IAM → Users → Create user** `aquag20-backup-uploader` (sem console access)
+4. Attach policy (JSON, troque o bucket):
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["s3:ListBucket"],
-      "Resource": "arn:aws:s3:::meu-bucket"
-    },
-    {
-      "Effect": "Allow",
-      "Action": ["s3:PutObject", "s3:DeleteObject"],
-      "Resource": "arn:aws:s3:::meu-bucket/aquag20-backups/*"
-    }
+    {"Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": "arn:aws:s3:::meu-bucket"},
+    {"Effect": "Allow", "Action": ["s3:PutObject","s3:DeleteObject"], "Resource": "arn:aws:s3:::meu-bucket/aquag20-backups/*"}
   ]
 }
 ```
-
-Configuração via `.env`:
-
+5. Security credentials → Create access key → Application running outside AWS → copie
+6. `.env`:
 ```bash
 S3_BACKUP_BUCKET=meu-bucket
-S3_BACKUP_PREFIX=aquag20-backups/          # default
-S3_BACKUP_STORAGE_CLASS=STANDARD_IA        # opcional — STANDARD_IA/GLACIER_IR pra economizar
+S3_BACKUP_PREFIX=aquag20-backups/
+S3_BACKUP_STORAGE_CLASS=STANDARD_IA            # opcional — IA/GLACIER_IR pra economizar
+# S3_BACKUP_ENDPOINT_URL=                       # vazio = AWS default
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
-AWS_REGION=us-east-1
+AWS_REGION=sa-east-1
 ```
+</details>
 
-Uso:
+### Uso (igual em qualquer provider)
 
 ```powershell
 # Default: envia tudo de ./backups que ainda não está no bucket
@@ -265,14 +355,17 @@ python scripts\sync_backups_s3.py
 # Dry-run pra ver o que seria enviado
 python scripts\sync_backups_s3.py --dry-run
 
-# Rotação no S3 (sem flag, backups acumulam indefinidamente)
+# Smoke test end-to-end (sobe arquivo fake, verifica, apaga)
+.\scripts\test_s3_e2e.ps1
+
+# Rotação no bucket (sem flag, backups acumulam — default seguro)
 python scripts\sync_backups_s3.py --s3-retention-days 365
 
-# Override de bucket/prefix por CLI (útil pra ambiente staging)
-python scripts\sync_backups_s3.py --bucket outro --prefix staging/
+# Override por CLI (útil pra staging)
+python scripts\sync_backups_s3.py --bucket outro --endpoint-url https://...
 ```
 
-Agendamento — rode logo após `backup_db.py`:
+### Agendamento (rode logo após `backup_db.py`)
 
 ```bash
 # Linux/cron
@@ -288,10 +381,11 @@ Agendamento — rode logo após `backup_db.py`:
 ```
 
 **Decisões:**
-- Sempre `ServerSideEncryption=AES256` (SSE-S3 default, sem custo extra de KMS).
-- `ContentType=application/gzip` — facilita download direto + content-encoding correto.
+- `ServerSideEncryption=AES256` enviado sempre (AWS/B2 honram; R2/OCI ignoram silenciosamente — encriptam por default).
+- `ContentType=application/gzip` — download direto serve com encoding correto.
 - Skip por nome de arquivo (não por hash): backups têm timestamp único, sobrescrever seria perda silenciosa.
-- Sem flag `--s3-retention-days`, **nada é deletado do bucket** — estratégia segura por default. Off-site deve sobreviver a um attacker que apaga local + rotação.
+- `S3_BACKUP_STORAGE_CLASS=""` (vazio) omite o param — necessário pra B2/R2 que não suportam o conceito.
+- Sem `--s3-retention-days`, **nada é deletado do bucket** — estratégia segura por default. Off-site deve sobreviver a um attacker que apaga local + rotação.
 
 ## Off-site backup (Google Drive) — alternativa gratuita ao S3
 
