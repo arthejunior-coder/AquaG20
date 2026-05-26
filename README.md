@@ -216,7 +216,82 @@ Agendamento sugerido (todo dia 2h da manhã):
 - `--single-transaction` (InnoDB consistente sem lock de tabela), `--routines`, `--triggers`, `--default-character-set=utf8mb4`.
 - Output: `<dbname>-YYYYMMDD-HHMMSS.sql.gz` — fácil de listar/ordenar/parsear.
 - Rotação por `mtime` (não confia no nome — protege contra timezone/drift).
-- Para off-site backup: rode `aws s3 sync backups/ s3://meu-bucket/aquag20/` no cron logo após.
+- Para off-site backup, use o script dedicado abaixo (sem dependência do aws CLI — usa boto3).
+
+## Off-site backup (S3)
+
+Script `scripts/sync_backups_s3.py` envia os `.sql.gz` locais pra um bucket S3 — proteção contra incêndio/ransomware no servidor. Idempotente: pula arquivos cujo nome já existe no bucket (não retransmite).
+
+Pré-requisitos:
+
+1. Bucket S3 criado (ative **versioning** + **block public access** + opcionalmente **object lock** pra anti-ransomware).
+2. IAM user/role com policy mínima:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::meu-bucket"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::meu-bucket/aquag20-backups/*"
+    }
+  ]
+}
+```
+
+Configuração via `.env`:
+
+```bash
+S3_BACKUP_BUCKET=meu-bucket
+S3_BACKUP_PREFIX=aquag20-backups/          # default
+S3_BACKUP_STORAGE_CLASS=STANDARD_IA        # opcional — STANDARD_IA/GLACIER_IR pra economizar
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=us-east-1
+```
+
+Uso:
+
+```powershell
+# Default: envia tudo de ./backups que ainda não está no bucket
+python scripts\sync_backups_s3.py
+
+# Dry-run pra ver o que seria enviado
+python scripts\sync_backups_s3.py --dry-run
+
+# Rotação no S3 (sem flag, backups acumulam indefinidamente)
+python scripts\sync_backups_s3.py --s3-retention-days 365
+
+# Override de bucket/prefix por CLI (útil pra ambiente staging)
+python scripts\sync_backups_s3.py --bucket outro --prefix staging/
+```
+
+Agendamento — rode logo após `backup_db.py`:
+
+```bash
+# Linux/cron
+0 2 * * * cd /path/AquaG20 && /path/.venv/bin/python scripts/backup_db.py >> backup.log 2>&1
+5 2 * * * cd /path/AquaG20 && /path/.venv/bin/python scripts/sync_backups_s3.py >> backup.log 2>&1
+```
+
+```powershell
+# Windows — Task Scheduler (gatilho diário, ~5min após o backup)
+# Programa: C:\AquaG20\.venv\Scripts\python.exe
+# Argumentos: C:\AquaG20\scripts\sync_backups_s3.py
+# Iniciar em: C:\AquaG20
+```
+
+**Decisões:**
+- Sempre `ServerSideEncryption=AES256` (SSE-S3 default, sem custo extra de KMS).
+- `ContentType=application/gzip` — facilita download direto + content-encoding correto.
+- Skip por nome de arquivo (não por hash): backups têm timestamp único, sobrescrever seria perda silenciosa.
+- Sem flag `--s3-retention-days`, **nada é deletado do bucket** — estratégia segura por default. Off-site deve sobreviver a um attacker que apaga local + rotação.
 
 ## CI/CD (GitHub Actions)
 
