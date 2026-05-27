@@ -49,7 +49,7 @@
                     {% endif %}
                 </td>
                 <td class="px-3 py-2 text-xs capitalize text-slate-600">{{ m.estado.value }}</td>
-                <td class="px-3 py-2 text-xs font-mono text-slate-600">{{ m.validade.strftime("%Y-%m-%d") if m.validade else "—" }}</td>
+                <td class="px-3 py-2 text-xs font-mono text-slate-600">{{ m.validade|mes_ano }}</td>
                 <td class="px-3 py-2 text-right font-mono tabular-nums">{{ m.quantidade }}</td>
                 <td class="px-3 py-2 text-xs text-slate-500 max-w-xs truncate">{{ m.observacao or "" }}</td>
             </tr>

@@ -41,10 +41,10 @@
                 <td class="px-4 py-2">{{ tipo.nome if tipo else "—" }}</td>
                 <td class="px-4 py-2 text-right font-mono tabular-nums">{{ p.quantidade }}</td>
                 <td class="px-4 py-2">
-                    {{ p.validade_entregue.strftime('%d/%m/%Y') if p.validade_entregue else "—" }}
+                    {{ p.validade_entregue|mes_ano }}
                 </td>
                 <td class="px-4 py-2">
-                    {{ p.validade_recebida.strftime('%d/%m/%Y') if p.validade_recebida else "—" }}
+                    {{ p.validade_recebida|mes_ano }}
                 </td>
                 <td class="px-4 py-2 text-center">
                     {% if p.casado %}

@@ -49,7 +49,7 @@
                         {{ tipo.nome if tipo else "(tipo #%d)"|format(it.tipo_garrafao_id) }}
                     </td>
                     <td class="px-3 py-2 text-slate-700">
-                        {{ it.validade_solicitada.strftime('%d/%m/%Y') if it.validade_solicitada else "—" }}
+                        {{ it.validade_solicitada|mes_ano }}
                     </td>
                     <td class="px-3 py-2 text-right font-mono tabular-nums">{{ it.qtd_solicitada }}</td>
                     <td class="px-3 py-2 text-right font-mono tabular-nums
@@ -57,10 +57,10 @@
                         {{ it.qtd_atendida }}
                     </td>
                     <td class="px-3 py-2 text-right font-mono tabular-nums">
-                        {{ "%.2f"|format(it.preco_unitario) if it.preco_unitario is not none else "—" }}
+                        {{ it.preco_unitario|brl }}
                     </td>
                     <td class="px-3 py-2 text-right font-mono tabular-nums">
-                        {{ "%.2f"|format((it.preco_unitario or 0) * it.qtd_solicitada) }}
+                        {{ ((it.preco_unitario or 0) * it.qtd_solicitada)|brl }}
                     </td>
                 </tr>
                 {% endfor %}
@@ -72,7 +72,7 @@
                     <td class="px-3 py-2"></td>
                     <td class="px-3 py-2"></td>
                     <td class="px-3 py-2 text-right font-mono font-semibold">
-                        R$ {{ "%.2f"|format(pedido.valor_total) }}
+                        {{ pedido.valor_total|brl }}
                     </td>
                 </tr>
             </tfoot>

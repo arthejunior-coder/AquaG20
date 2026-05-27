@@ -10,6 +10,8 @@ Cada teste roda numa tabela limpa (TRUNCATE com FK_CHECKS=0 antes).
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from sqlalchemy import text
 
@@ -17,6 +19,31 @@ from app import create_app
 from app.auth.password import hash_password
 from app.extensions import db
 from app.models.tenant import PapelUsuario, Tenant, Usuario
+
+
+# Data fixa pra todos os testes — fixtures usam datas hardcoded tipo 2027-2029
+# que precisam fazer sentido relativo a "hoje". Sem isso, mover a data real
+# do sistema invalida testes ao longo do tempo.
+# Escolhida 2026-05-01 porque acomoda VALs comuns dos testes:
+# - 2026 (mês atual ou próximos) → janela aceita
+# - 2027/2028 → dentro de 36 meses
+# - 2029-05 → exatamente o limite
+TEST_HOJE = date(2026, 6, 1)
+
+
+@pytest.fixture(autouse=True)
+def _freeze_today_in_validity():
+    """Congela `_HOJE_OVERRIDE` em app.validity pra TEST_HOJE.
+
+    Aplicada em TODOS os tests automaticamente — sem isso, validar_validade_pedida
+    usa date.today() que vai drift conforme passa o tempo e quebra testes que
+    usam datas hardcoded como 2027/2028/2029.
+    """
+    import app.validity as v
+    original = v._HOJE_OVERRIDE
+    v._HOJE_OVERRIDE = TEST_HOJE
+    yield
+    v._HOJE_OVERRIDE = original
 
 
 # Ordem de TRUNCATE — folhas primeiro, raízes (tenants/usuarios) por último.

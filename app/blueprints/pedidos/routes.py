@@ -38,6 +38,26 @@ from app.models.pedidos import (
 )
 from app.models.pool import TipoGarrafao
 from app.models.logistica import RotaParada
+from app.validity import (
+    GARRAFAO_VALIDADE_MAX_MESES,
+    _add_meses,
+    primeiro_dia_do_mes,
+)
+
+
+@bp.context_processor
+def _injeta_janela_validade():
+    """Calcula min/max de validade aceita pra preencher attrs HTML do <input
+    type="month">. Disponível em TODOS os templates do bp pedidos sem precisar
+    passar em cada render_template.
+    """
+    hoje = date.today()
+    minimo = primeiro_dia_do_mes(hoje)
+    maximo = _add_meses(minimo, GARRAFAO_VALIDADE_MAX_MESES)
+    return {
+        "validade_min_iso": minimo.strftime("%Y-%m"),  # formato do input type=month
+        "validade_max_iso": maximo.strftime("%Y-%m"),
+    }
 from app.models.pool import LocalEstoque, TipoLocal
 from app.repositories.cadastros_repo import ClienteRepository
 from app.repositories.pedido_repo import PedidoRepository, PermutaRepository
@@ -88,21 +108,35 @@ def _tipos_garrafao_for_select() -> list[TipoGarrafao]:
 
 
 def _parse_data(valor: str | None) -> date | None:
+    """Aceita 'YYYY-MM' (input type=month) ou 'YYYY-MM-DD' (legado).
+
+    Validade de garrafão é granularidade mês — internamente dia=01.
+    """
     if not valor:
         return None
+    valor = valor.strip()
+    if not valor:
+        return None
+    # input type="month" envia "YYYY-MM"
+    if len(valor) == 7 and valor[4] == "-":
+        try:
+            return datetime.strptime(valor, "%Y-%m").date().replace(day=1)
+        except ValueError:
+            raise PedidoInvalidoError(f"data inválida: {valor!r} (use YYYY-MM)")
+    # Fallback: YYYY-MM-DD (compat com forms antigos)
     try:
         return datetime.strptime(valor, "%Y-%m-%d").date()
     except ValueError:
-        raise PedidoInvalidoError(f"data inválida: {valor!r} (use YYYY-MM-DD)")
+        raise PedidoInvalidoError(f"data inválida: {valor!r} (use YYYY-MM)")
 
 
 def _parse_decimal(valor: str | None) -> Decimal | None:
-    if valor is None or valor == "":
-        return None
+    """Wrapper de parse_money que mapeia ValueError → PedidoInvalidoError."""
+    from app.money import parse_money
     try:
-        return Decimal(valor.replace(",", "."))
-    except InvalidOperation:
-        raise PedidoInvalidoError(f"preço inválido: {valor!r}")
+        return parse_money(valor)
+    except ValueError as exc:
+        raise PedidoInvalidoError(f"preço inválido: {valor!r}") from exc
 
 
 def parse_itens_input(form_data) -> list[ItemPedidoInput]:
@@ -235,11 +269,15 @@ def _linhas_para_template(form_data) -> list[dict]:
                 continue
     out = []
     for i in sorted(indices):
+        # input type="month" envia/preserva YYYY-MM — só normaliza por garantia
+        val = (form_data.get(f"itens-{i}-validade_solicitada") or "").strip()
+        if len(val) > 7:  # veio YYYY-MM-DD por algum motivo, trunca
+            val = val[:7]
         out.append({
             "idx": i,
             "tipo_garrafao_id": form_data.get(f"itens-{i}-tipo_garrafao_id", ""),
             "quantidade": form_data.get(f"itens-{i}-quantidade", ""),
-            "validade_solicitada": form_data.get(f"itens-{i}-validade_solicitada", ""),
+            "validade_solicitada": val,
             "preco_unitario": form_data.get(f"itens-{i}-preco_unitario", ""),
         })
     return out or [{"idx": 0, "tipo_garrafao_id": "", "quantidade": "",
@@ -471,7 +509,8 @@ def entregar(id):
                           if tipos_by_id.get(item.tipo_garrafao_id) else f"#{item.tipo_garrafao_id}"),
             "quantidade_pedida": item.qtd_solicitada,
             "quantidade": item.qtd_solicitada - (item.qtd_atendida or 0),
-            "validade_entregue": (item.validade_solicitada.isoformat()
+            # input type="month" espera YYYY-MM, não YYYY-MM-DD
+            "validade_entregue": (item.validade_solicitada.strftime("%Y-%m")
                                   if item.validade_solicitada else ""),
             "validade_recebida": "",  # default = igual à entregue (operador edita)
         }

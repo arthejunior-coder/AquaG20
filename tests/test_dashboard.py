@@ -112,8 +112,8 @@ class TestDashboardReal:
         assert r.status_code == 200
         # Taxa de casamento 100.0%
         assert b"100.0%" in r.data
-        # Custo de reposição R$ 70.00
-        assert b"70.00" in r.data
+        # Custo de reposição R$ 70,00 (formato BR via filtro brl)
+        assert b"R$ 70,00" in r.data
 
     def test_isolamento_tenant_dashboard(self, client, app, dash_setup, two_tenants, login_as):
         """B descarta 100 garrafões; dashboard de A deve continuar zerado."""

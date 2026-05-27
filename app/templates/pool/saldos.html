@@ -65,7 +65,7 @@
                         }[s.estado.value] %}
                         <span class="text-xs px-2 py-0.5 rounded-full {{ estado_color }} capitalize">{{ s.estado.value }}</span>
                     </td>
-                    <td class="px-4 py-2 font-mono text-xs text-slate-700">{{ s.validade.strftime("%Y-%m-%d") }}</td>
+                    <td class="px-4 py-2 font-mono text-xs text-slate-700">{{ s.validade|mes_ano }}</td>
                     <td class="px-4 py-2 text-right font-mono tabular-nums font-semibold">{{ s.quantidade }}</td>
                 </tr>
                 {% endfor %}

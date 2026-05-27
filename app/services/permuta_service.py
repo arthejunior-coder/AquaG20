@@ -63,12 +63,26 @@ class LinhaEntregaInput:
     validade_recebida: date | None = None  # default = igual à entregue (casado)
 
     def __post_init__(self):
+        from app.validity import validar_validade_pedida
         if self.quantidade <= 0:
             raise EntregaInvalidaError(
                 f"quantidade deve ser > 0, got {self.quantidade}"
             )
         if self.validade_entregue is None:
             raise EntregaInvalidaError("validade_entregue é obrigatória")
+        # Cheio entregue ao cliente NÃO pode estar vencido nem ter validade
+        # impossível (>3 anos = não existe garrafão tão novo)
+        try:
+            validar_validade_pedida(self.validade_entregue)
+        except ValueError as exc:
+            raise EntregaInvalidaError(f"validade_entregue: {exc}") from exc
+        # Vazio recebido em troca segue mesma regra (não aceita vasilhame
+        # vencido — se cliente devolve vencido, é caso de descarte, não permuta)
+        if self.validade_recebida is not None:
+            try:
+                validar_validade_pedida(self.validade_recebida)
+            except ValueError as exc:
+                raise EntregaInvalidaError(f"validade_recebida: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ from app.errors import register_error_handlers
 from app.extensions import csrf, db, limiter, login_manager, migrate
 from app.observability import JsonFormatter, configure_observability
 from app.security import register_healthcheck, register_security
+from app.template_filters import register_filters
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -28,6 +29,7 @@ def create_app(config_name: str | None = None) -> Flask:
     register_error_handlers(app)
     register_security(app)
     register_healthcheck(app)
+    register_filters(app)
     configure_observability(app)
 
     from app import models  # noqa: F401  — registra mappers no SQLAlchemy

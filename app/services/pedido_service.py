@@ -38,6 +38,7 @@ from app.models.pedidos import (
     StatusPedido,
 )
 from app.models.pool import TipoGarrafao
+from app.validity import GARRAFAO_VALIDADE_MAX_MESES, validar_validade_pedida
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +77,11 @@ class ItemPedidoInput:
             raise PedidoInvalidoError(
                 f"preco_unitario deve ser >= 0, got {self.preco_unitario}"
             )
+        if self.validade_solicitada is not None:
+            try:
+                validar_validade_pedida(self.validade_solicitada)
+            except ValueError as exc:
+                raise PedidoInvalidoError(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------

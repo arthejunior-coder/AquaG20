@@ -7,11 +7,11 @@
 <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
     <section class="card p-5 bg-emerald-50 border-emerald-200">
         <p class="text-xs text-emerald-700 uppercase font-semibold tracking-wide">A receber (próximos 30 dias)</p>
-        <p class="text-2xl font-mono mt-2 text-emerald-900">R$ {{ "%.2f"|format(receber_30) }}</p>
+        <p class="text-2xl font-mono mt-2 text-emerald-900">{{ receber_30|brl }}</p>
     </section>
     <section class="card p-5 bg-rose-50 border-rose-200">
         <p class="text-xs text-rose-700 uppercase font-semibold tracking-wide">A pagar (próximos 30 dias)</p>
-        <p class="text-2xl font-mono mt-2 text-rose-900">R$ {{ "%.2f"|format(pagar_30) }}</p>
+        <p class="text-2xl font-mono mt-2 text-rose-900">{{ pagar_30|brl }}</p>
     </section>
 </div>
 
@@ -37,20 +37,20 @@
                     {{ meses_nome[m.mes - 1] }}/{{ m.ano }}
                 </td>
                 <td class="px-3 py-2 text-right font-mono tabular-nums text-emerald-700">
-                    {{ "%.2f"|format(m.receber_previsto) }}
+                    {{ m.receber_previsto|brl }}
                 </td>
                 <td class="px-3 py-2 text-right font-mono tabular-nums text-emerald-900 font-semibold">
-                    {{ "%.2f"|format(m.receber_realizado) }}
+                    {{ m.receber_realizado|brl }}
                 </td>
                 <td class="px-3 py-2 text-right font-mono tabular-nums text-rose-700">
-                    {{ "%.2f"|format(m.pagar_previsto) }}
+                    {{ m.pagar_previsto|brl }}
                 </td>
                 <td class="px-3 py-2 text-right font-mono tabular-nums text-rose-900 font-semibold">
-                    {{ "%.2f"|format(m.pagar_realizado) }}
+                    {{ m.pagar_realizado|brl }}
                 </td>
                 <td class="px-3 py-2 text-right font-mono tabular-nums font-semibold
                     {{ 'text-emerald-700' if saldo >= 0 else 'text-rose-700' }}">
-                    {{ "%.2f"|format(saldo) }}
+                    {{ saldo|brl }}
                 </td>
             </tr>
             {% endfor %}

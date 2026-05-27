@@ -11,7 +11,7 @@
     </h1>
     <p class="text-sm text-slate-500 mt-1">
         {{ lancamento.descricao }} — Valor previsto:
-        <strong class="text-slate-700 font-mono">R$ {{ "%.2f"|format(lancamento.valor) }}</strong>
+        <strong class="text-slate-700 font-mono">{{ lancamento.valor|brl }}</strong>
     </p>
 </div>
 

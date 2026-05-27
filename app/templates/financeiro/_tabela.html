@@ -59,10 +59,10 @@
                     {{ contraparte.nome if contraparte else "—" }}
                 </td>
                 <td class="px-4 py-2 text-right font-mono tabular-nums">
-                    {{ "%.2f"|format(l.valor) }}
+                    {{ l.valor|brl }}
                 </td>
                 <td class="px-4 py-2 text-right font-mono tabular-nums">
-                    {{ "%.2f"|format(l.valor_pago) if l.valor_pago is not none else "—" }}
+                    {{ l.valor_pago|brl }}
                 </td>
                 <td class="px-4 py-2">{{ badge_status(l.status) }}</td>
                 <td class="px-4 py-2 text-right whitespace-nowrap text-xs">

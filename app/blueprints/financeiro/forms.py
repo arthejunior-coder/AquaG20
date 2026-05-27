@@ -3,9 +3,10 @@
 from decimal import Decimal
 
 from flask_wtf import FlaskForm
-from wtforms import DateField, DecimalField, SelectField, StringField, SubmitField
+from wtforms import DateField, SelectField, StringField, SubmitField
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
+from app.forms_fields import BrlMoneyField
 from app.models.financeiro import (
     FormaLancamento,
     NaturezaLancamento,
@@ -34,7 +35,7 @@ class LancamentoForm(FlaskForm):
     descricao = StringField(
         "Descrição", validators=[DataRequired(), Length(max=200)]
     )
-    valor = DecimalField(
+    valor = BrlMoneyField(
         "Valor (R$)",
         places=2,
         validators=[DataRequired(), NumberRange(min=Decimal("0.01"))],
@@ -79,7 +80,7 @@ class PagarForm(FlaskForm):
     """Form para marcar lançamento como pago. valor_pago default = lancamento.valor."""
 
     pago_em = DateField("Data do pagamento", validators=[DataRequired()])
-    valor_pago = DecimalField(
+    valor_pago = BrlMoneyField(
         "Valor pago (R$)",
         places=2,
         validators=[DataRequired(), NumberRange(min=Decimal("0.01"))],

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
     <script defer src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/money-mask.js') }}"></script>
     <script>
         // CSRF header em toda request HTMX — sem isso, todo POST/PUT/DELETE
         // via HTMX falha com 400 (Flask-WTF CSRF).

@@ -67,7 +67,7 @@
                     Reposição mensal
                 </p>
                 <p class="text-3xl font-semibold text-slate-900 mt-2">
-                    R$ {{ "%.2f"|format(custo.total_valor) }}
+                    {{ custo.total_valor|brl }}
                 </p>
                 <p class="text-xs text-slate-500 mt-1">
                     {{ custo.total_unidades }} garrafões (descarte + avaria, 30d)
@@ -135,19 +135,19 @@
                 <tr>
                     <td class="px-3 py-2 text-slate-700">Descarte</td>
                     <td class="px-3 py-2 text-right font-mono tabular-nums">{{ custo.descarte_unidades }}</td>
-                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ "%.2f"|format(custo.descarte_valor) }}</td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ custo.descarte_valor|brl }}</td>
                 </tr>
                 <tr>
                     <td class="px-3 py-2 text-slate-700">Avaria</td>
                     <td class="px-3 py-2 text-right font-mono tabular-nums">{{ custo.avaria_unidades }}</td>
-                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ "%.2f"|format(custo.avaria_valor) }}</td>
+                    <td class="px-3 py-2 text-right font-mono tabular-nums">{{ custo.avaria_valor|brl }}</td>
                 </tr>
             </tbody>
             <tfoot>
                 <tr class="border-t-2 border-slate-200 bg-slate-50">
                     <td class="px-3 py-2 text-right font-semibold text-slate-700">Total</td>
                     <td class="px-3 py-2 text-right font-mono font-semibold">{{ custo.total_unidades }}</td>
-                    <td class="px-3 py-2 text-right font-mono font-semibold">R$ {{ "%.2f"|format(custo.total_valor) }}</td>
+                    <td class="px-3 py-2 text-right font-mono font-semibold">{{ custo.total_valor|brl }}</td>
                 </tr>
             </tfoot>
         </table>

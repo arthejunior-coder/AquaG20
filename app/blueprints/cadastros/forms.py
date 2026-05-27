@@ -18,6 +18,8 @@ from wtforms import (
     StringField,
     SubmitField,
 )
+
+from app.forms_fields import BrlMoneyField
 from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional, Regexp
 
 from app.models.cadastros import TipoCentroCusto, TipoCliente
@@ -128,7 +130,7 @@ class TipoGarrafaoForm(FlaskForm):
         validators=[DataRequired(), NumberRange(min=Decimal("0.01"), max=Decimal("999.99"))],
         default=Decimal("20.00"),
     )
-    valor_reposicao = DecimalField(
+    valor_reposicao = BrlMoneyField(
         "Custo de reposição (R$)",
         places=2,
         validators=[Optional(), NumberRange(min=Decimal("0"), max=Decimal("99999999.99"))],

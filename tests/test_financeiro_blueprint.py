@@ -105,7 +105,8 @@ class TestDashboard:
         login_as(client, "fin@a.com", "senha-fin-123")
         r = client.get("/financeiro/")
         assert r.status_code == 200
-        assert b"500.00" in r.data
+        # Formato BR via filtro brl: "R$ 500,00"
+        assert b"R$ 500,00" in r.data
 
 
 # ---------------------------------------------------------------------------

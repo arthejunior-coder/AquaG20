@@ -25,7 +25,7 @@
                 </td>
                 <td class="px-4 py-2 text-right tabular-nums">{{ "%.2f"|format(t.capacidade_litros) }} L</td>
                 <td class="px-4 py-2 text-right tabular-nums">
-                    {% if t.valor_reposicao %}R$ {{ "%.2f"|format(t.valor_reposicao) }}{% else %}—{% endif %}
+                    {{ t.valor_reposicao|brl if t.valor_reposicao else "—" }}
                 </td>
                 <td class="px-4 py-2">{{ badge_ativo(t.ativo) }}</td>
                 <td class="px-4 py-2 text-right">

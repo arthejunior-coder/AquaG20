@@ -89,8 +89,8 @@ class TestFluxoCompleto:
         # ---- 3. DASHBOARD INICIAL: KPI custo = 0 ----
         r = client.get("/")
         assert r.status_code == 200
-        # Card de reposição mostra R$ 0.00 (sem descarte ainda)
-        assert b"R$ 0.00" in r.data
+        # Card de reposição mostra R$ 0,00 (formato BR via filtro brl)
+        assert b"R$ 0,00" in r.data
 
         # ---- 4. CRIA PEDIDO via HTTP ----
         r = client.post("/pedidos/novo", data={
@@ -169,10 +169,10 @@ class TestFluxoCompleto:
         }, follow_redirects=False)
         assert r.status_code == 302
 
-        # ---- 9. DASHBOARD: KPI custo = 2 * 35 = R$ 70.00 ----
+        # ---- 9. DASHBOARD: KPI custo = 2 * 35 = R$ 70,00 (formato BR) ----
         r = client.get("/")
         assert r.status_code == 200
-        assert b"70.00" in r.data
+        assert b"R$ 70,00" in r.data
 
         # ---- 10. AUDITORIA: reconstrução do saldo bate ----
         with app.app_context():
