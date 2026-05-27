@@ -404,3 +404,159 @@ class TestRotateRemote:
         )
         assert client.deletes == []
         assert client.uploads == []
+
+
+# ---------------------------------------------------------------------------
+
+
+class TestObjectLock:
+    """Object Lock COMPLIANCE per-upload — proteção anti-ransomware.
+
+    Guardrails são crítos: Compliance é IRREVERSÍVEL. Bug que envia retention
+    enorme cria custo permanente. Esses testes blindam o cap.
+    """
+
+    def _make_backup(self, dir_, name):
+        p = dir_ / name
+        with gzip.open(p, "wb") as f:
+            f.write(b"dump")
+        return p
+
+    def test_sem_lock_config_nao_envia_lock_headers(self, tmp_path, monkeypatch):
+        """Sem env vars + sem args, upload sai sem ObjectLockMode."""
+        monkeypatch.delenv("S3_BACKUP_LOCK_MODE", raising=False)
+        monkeypatch.delenv("S3_BACKUP_LOCK_RETENTION_DAYS", raising=False)
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(source_dir=tmp_path, bucket="my-bucket", client=client)
+        assert rc == 0
+        extra = client.uploads[0]["extra_args"]
+        assert "ObjectLockMode" not in extra
+        assert "ObjectLockRetainUntilDate" not in extra
+
+    def test_lock_compliance_aplica_headers_no_upload(self, tmp_path):
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode="COMPLIANCE", lock_retention_days=7,
+        )
+        assert rc == 0
+        extra = client.uploads[0]["extra_args"]
+        assert extra["ObjectLockMode"] == "COMPLIANCE"
+        # RetainUntilDate é datetime ~7 dias no futuro
+        retain_until = extra["ObjectLockRetainUntilDate"]
+        assert isinstance(retain_until, datetime.datetime)
+        delta = retain_until - datetime.datetime.now(datetime.timezone.utc)
+        assert 6.9 < delta.total_seconds() / 86400 < 7.1  # ~7 dias
+
+    def test_lock_governance_aceito(self, tmp_path):
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode="GOVERNANCE", lock_retention_days=30,
+        )
+        assert rc == 0
+        assert client.uploads[0]["extra_args"]["ObjectLockMode"] == "GOVERNANCE"
+
+    def test_lock_le_env_vars(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("S3_BACKUP_LOCK_MODE", "COMPLIANCE")
+        monkeypatch.setenv("S3_BACKUP_LOCK_RETENTION_DAYS", "10")
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        sync(source_dir=tmp_path, bucket="my-bucket", client=client)
+        extra = client.uploads[0]["extra_args"]
+        assert extra["ObjectLockMode"] == "COMPLIANCE"
+        delta = extra["ObjectLockRetainUntilDate"] - datetime.datetime.now(datetime.timezone.utc)
+        assert 9.9 < delta.total_seconds() / 86400 < 10.1
+
+    def test_lock_mode_invalido_retorna_2(self, tmp_path):
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode="INVALID", lock_retention_days=7,
+        )
+        assert rc == 2
+        assert client.uploads == []  # nada subiu
+
+    def test_lock_retention_zero_retorna_2(self, tmp_path):
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode="COMPLIANCE", lock_retention_days=0,
+        )
+        assert rc == 2
+        assert client.uploads == []
+
+    def test_lock_retention_negativo_retorna_2(self, tmp_path):
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode="COMPLIANCE", lock_retention_days=-5,
+        )
+        assert rc == 2
+
+    def test_lock_retention_excede_cap_retorna_2(self, tmp_path):
+        """CRÍTICO: cap MAX_LOCK_RETENTION_DAYS protege contra typo (30 vs 30000)."""
+        from scripts.sync_backups_s3 import _MAX_LOCK_RETENTION_DAYS
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode="COMPLIANCE",
+            lock_retention_days=_MAX_LOCK_RETENTION_DAYS + 1,
+        )
+        assert rc == 2
+        assert client.uploads == []  # rejeitado ANTES de qualquer upload
+
+    def test_lock_retention_no_cap_aceito(self, tmp_path):
+        from scripts.sync_backups_s3 import _MAX_LOCK_RETENTION_DAYS
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode="COMPLIANCE",
+            lock_retention_days=_MAX_LOCK_RETENTION_DAYS,  # exatamente no limite
+        )
+        assert rc == 0
+        assert len(client.uploads) == 1
+
+    def test_lock_mode_sem_retention_retorna_2(self, tmp_path, monkeypatch):
+        """Setar só um lado é ambíguo — exigir ambos juntos."""
+        # Isola env vars do .env real do dev pra não contaminar o teste
+        monkeypatch.delenv("S3_BACKUP_LOCK_MODE", raising=False)
+        monkeypatch.delenv("S3_BACKUP_LOCK_RETENTION_DAYS", raising=False)
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode="COMPLIANCE", lock_retention_days=None,
+        )
+        assert rc == 2
+
+    def test_lock_retention_sem_mode_retorna_2(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("S3_BACKUP_LOCK_MODE", raising=False)
+        monkeypatch.delenv("S3_BACKUP_LOCK_RETENTION_DAYS", raising=False)
+        self._make_backup(tmp_path, "aquag20-20260525-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode=None, lock_retention_days=7,
+        )
+        assert rc == 2
+
+    def test_lock_validacao_acontece_antes_de_qualquer_upload(self, tmp_path):
+        """Guardrail roda CEDO — múltiplos arquivos locais, nenhum sobe se inválido."""
+        for n in range(5):
+            self._make_backup(tmp_path, f"aquag20-2026052{n}-000000.sql.gz")
+        client = FakeS3Client()
+        rc = sync(
+            source_dir=tmp_path, bucket="my-bucket", client=client,
+            lock_mode="COMPLIANCE", lock_retention_days=99999,
+        )
+        assert rc == 2
+        assert client.uploads == []  # zero uploads — não vazou nenhum

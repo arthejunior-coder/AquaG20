@@ -1,4 +1,4 @@
-# Smoke test end-to-end do off-site backup S3.
+﻿# Smoke test end-to-end do off-site backup S3.
 #
 # O que faz, em ordem:
 #   1) Verifica que .env tem S3_BACKUP_BUCKET preenchido
@@ -104,11 +104,15 @@ for obj in items:
 if ($LASTEXITCODE -ne 0) { Write-Host "Verificacao falhou." -ForegroundColor Red; exit 1 }
 
 # ---- 7) Cleanup ------------------------------------------------------------
-Write-Host "`n==> 7/7  Cleanup (apaga local + remoto)" -ForegroundColor Cyan
+# Se Object Lock estiver ativo, o delete vai criar delete marker mas a versao
+# original fica protegida. Limpamos o delete marker pra nao poluir o bucket.
+# A versao locked vai expirar sozinha na data de retention.
+Write-Host "`n==> 7/7  Cleanup (apaga local + remoto, respeitando Object Lock)" -ForegroundColor Cyan
 & $python -c @"
 from dotenv import load_dotenv
 load_dotenv()
 import os, boto3
+from botocore.exceptions import ClientError
 kwargs = {}
 endpoint = os.environ.get('S3_BACKUP_ENDPOINT_URL')
 if endpoint:
@@ -116,8 +120,32 @@ if endpoint:
 client = boto3.client('s3', **kwargs)
 bucket = os.environ['S3_BACKUP_BUCKET']
 prefix = os.environ.get('S3_BACKUP_PREFIX', 'aquag20-backups/')
-client.delete_object(Bucket=bucket, Key=prefix + '$fakeName')
-print(f'  removido do bucket: {prefix}$fakeName')
+key = prefix + '$fakeName'
+
+# Cria delete marker (sempre funciona)
+client.delete_object(Bucket=bucket, Key=key)
+print(f'  delete marker criado pra {key}')
+
+# Tenta apagar versoes residuais
+vresp = client.list_object_versions(Bucket=bucket, Prefix=key)
+removed_versions = 0
+locked_versions = 0
+for v in vresp.get('Versions', []):
+    try:
+        client.delete_object(Bucket=bucket, Key=v['Key'], VersionId=v['VersionId'])
+        removed_versions += 1
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'AccessDenied':
+            locked_versions += 1
+        else:
+            raise
+# Apaga delete markers que criamos
+for dm in vresp.get('DeleteMarkers', []):
+    client.delete_object(Bucket=bucket, Key=dm['Key'], VersionId=dm['VersionId'])
+
+print(f'  versoes apagadas: {removed_versions}, locked (vao expirar sozinhas): {locked_versions}')
+if locked_versions > 0:
+    print(f'  NOTA: Object Lock ativo bloqueou {locked_versions} versao(es) — comportamento esperado.')
 "@
 Remove-Item $fakePath
 Write-Host "  removido local: $fakePath" -ForegroundColor Green

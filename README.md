@@ -387,6 +387,51 @@ python scripts\sync_backups_s3.py --bucket outro --endpoint-url https://...
 - `S3_BACKUP_STORAGE_CLASS=""` (vazio) omite o param — necessário pra B2/R2 que não suportam o conceito.
 - Sem `--s3-retention-days`, **nada é deletado do bucket** — estratégia segura por default. Off-site deve sobreviver a um attacker que apaga local + rotação.
 
+### Object Lock (proteção anti-ransomware)
+
+Suporte opcional a Object Lock per-arquivo via env vars. Quando ativado, cada upload sai com retention COMPLIANCE/GOVERNANCE de N dias — **nem você consegue apagar antes da data**, mesmo com credenciais válidas. Proteção real contra: ransomware que pega sua key B2/AWS, conta cloud roubada, atacante que apagaria backups antes da rotação.
+
+**Modos:**
+- **GOVERNANCE**: pode ser bypassed por keys com permissão `bypassGovernance`. Flexível, mas se atacante pegar a master/admin, ainda apaga.
+- **COMPLIANCE**: **IRREVERSÍVEL**. Nem o suporte do provider consegue apagar antes da retention expirar. Proteção máxima, sem volta.
+
+**B2 (Backblaze) só oferece COMPLIANCE** via UI. AWS S3 oferece os dois.
+
+**Setup:**
+
+1. **No bucket** (uma vez): habilite Object Lock no momento da criação do bucket. Em buckets existentes a feature **não pode ser adicionada** (recriar bucket é o caminho).
+
+2. **No `.env`** — adicione 2 vars:
+```bash
+S3_BACKUP_LOCK_MODE=COMPLIANCE         # ou GOVERNANCE (se provider suportar)
+S3_BACKUP_LOCK_RETENTION_DAYS=7        # dias de retention por arquivo
+```
+
+3. **Sem essas vars, comportamento é idêntico ao anterior** (sem lock). Opt-in puro.
+
+**Guardrail crítico:**
+
+O script tem um cap interno `_MAX_LOCK_RETENTION_DAYS=35` em [scripts/sync_backups_s3.py](scripts/sync_backups_s3.py). Qualquer valor acima é rejeitado **antes** da chamada à API. Razão: bug que envia 30 ANOS em vez de 30 dias (zero a mais por engano) com COMPLIANCE multiplica seu custo por 365 e não tem volta. Se você deliberadamente precisa de retention maior, edite o cap no source (e revise os testes).
+
+**Trade-offs:**
+
+| | Sem lock | Com lock |
+|---|---|---|
+| Atacante pega sua key | Apaga tudo | Só apaga arquivos fora da retention |
+| Você comete erro de config (typo) | Reversível | Custo fica preso N dias |
+| Rotação automática (`--s3-retention-days`) | Funciona | Falha silenciosa em arquivos lockados |
+| Custo | Só pelo que está no bucket | Pelo que está no bucket + lock pending |
+
+**Boa prática**: configure `S3_BACKUP_LOCK_RETENTION_DAYS` < `--s3-retention-days`. Ex: lock=7 dias + retention=14 dias significa que cada backup fica protegido por 1 semana, depois pode ser removido pela rotação normal.
+
+**Verificar metadata de um arquivo:**
+
+```powershell
+python -c "from dotenv import load_dotenv; load_dotenv(); import os, boto3; c=boto3.client('s3', endpoint_url=os.environ['S3_BACKUP_ENDPOINT_URL']); r=c.head_object(Bucket=os.environ['S3_BACKUP_BUCKET'], Key='aquag20-backups/SEU-ARQUIVO.sql.gz'); print(r.get('ObjectLockMode'), r.get('ObjectLockRetainUntilDate'))"
+```
+
+Deve imprimir tipo `COMPLIANCE 2026-06-03 14:52:02+00:00`.
+
 ## Off-site backup (Google Drive) — alternativa gratuita ao S3
 
 Script `scripts/sync_backups_gdrive.py` faz o mesmo que o do S3, mas pra uma pasta do Google Drive. Vantagens: **gratuito até 15 GB**, UI familiar pra browsing/restore. Desvantagens vs S3: setup OAuth um pouco mais chato (browser na 1ª vez), sem object lock (proteção anti-ransomware mais fraca).

@@ -55,6 +55,13 @@ if hasattr(sys.stdout, "reconfigure"):
 _DEFAULT_PREFIX = "aquag20-backups/"
 _DEFAULT_STORAGE_CLASS = "STANDARD"
 
+# Object Lock guardrail — Compliance é IRREVERSÍVEL. Um bug que envia retention
+# de 30 ANOS em vez de 30 dias multiplica seu custo por 365 e não tem volta.
+# Esse cap rejeita qualquer config acima desse valor antes de chamar a API.
+# Ajuste só se DELIBERADAMENTE precisar reter por mais tempo (e revise testes).
+_MAX_LOCK_RETENTION_DAYS = 35
+_VALID_LOCK_MODES = ("GOVERNANCE", "COMPLIANCE")
+
 
 def _normalize_prefix(prefix: str) -> str:
     """Garante que o prefix termina com / (S3 usa / como separador convencional)."""
@@ -86,11 +93,17 @@ def list_remote_keys(client, bucket: str, prefix: str) -> set[str]:
 
 def upload_file(
     client, local_path: Path, bucket: str, key: str, storage_class: str,
+    lock_mode: str | None = None,
+    lock_retention_days: int | None = None,
+    now: datetime.datetime | None = None,
 ) -> None:
-    """Faz upload com SSE AES256 + storage class configurada.
+    """Faz upload com SSE AES256 + storage class + Object Lock opcional.
 
     Se `storage_class` for vazio (""), pula o param — compatibilidade com
     providers que não suportam StorageClass ou usam nomes diferentes (B2, R2).
+
+    Se `lock_mode` e `lock_retention_days` forem dados, aplica Object Lock
+    per-arquivo (cada upload fica retido por N dias da hora do upload).
     """
     extra_args = {
         "ServerSideEncryption": "AES256",
@@ -98,6 +111,11 @@ def upload_file(
     }
     if storage_class:
         extra_args["StorageClass"] = storage_class
+    if lock_mode and lock_retention_days:
+        retain_until = (now or datetime.datetime.now(datetime.timezone.utc)) + \
+                       datetime.timedelta(days=lock_retention_days)
+        extra_args["ObjectLockMode"] = lock_mode
+        extra_args["ObjectLockRetainUntilDate"] = retain_until
     client.upload_file(str(local_path), bucket, key, ExtraArgs=extra_args)
 
 
@@ -142,6 +160,8 @@ def sync(
     storage_class: str | None = None,
     endpoint_url: str | None = None,
     s3_retention_days: int | None = None,
+    lock_mode: str | None = None,
+    lock_retention_days: int | None = None,
     dry_run: bool = False,
     client=None,
 ) -> int:
@@ -160,6 +180,49 @@ def sync(
         storage_class = os.environ.get("S3_BACKUP_STORAGE_CLASS", _DEFAULT_STORAGE_CLASS)
 
     endpoint_url = endpoint_url or os.environ.get("S3_BACKUP_ENDPOINT_URL") or None
+
+    # Object Lock — opt-in via env. Sem vars setadas, comportamento idêntico
+    # ao anterior (sem lock). Com vars setadas, valida guardrails ANTES de
+    # qualquer chamada API pra evitar bug de retention enorme criando custo
+    # permanente.
+    if lock_mode is None:
+        lock_mode = os.environ.get("S3_BACKUP_LOCK_MODE") or None
+    if lock_retention_days is None:
+        days_str = os.environ.get("S3_BACKUP_LOCK_RETENTION_DAYS")
+        lock_retention_days = int(days_str) if days_str else None
+
+    if lock_mode or lock_retention_days:
+        # Se um foi setado, o outro também tem que estar
+        if not (lock_mode and lock_retention_days):
+            print(
+                "ERRO: S3_BACKUP_LOCK_MODE e S3_BACKUP_LOCK_RETENTION_DAYS "
+                "precisam estar SETADOS JUNTOS (ou ambos vazios pra desabilitar).",
+                file=sys.stderr,
+            )
+            return 2
+        if lock_mode not in _VALID_LOCK_MODES:
+            print(
+                f"ERRO: S3_BACKUP_LOCK_MODE inválido: {lock_mode!r}. "
+                f"Valores aceitos: {_VALID_LOCK_MODES}",
+                file=sys.stderr,
+            )
+            return 2
+        if lock_retention_days <= 0:
+            print(
+                f"ERRO: S3_BACKUP_LOCK_RETENTION_DAYS deve ser > 0, "
+                f"got {lock_retention_days}",
+                file=sys.stderr,
+            )
+            return 2
+        if lock_retention_days > _MAX_LOCK_RETENTION_DAYS:
+            print(
+                f"ERRO: S3_BACKUP_LOCK_RETENTION_DAYS={lock_retention_days} "
+                f"excede MAX={_MAX_LOCK_RETENTION_DAYS}. Object Lock COMPLIANCE "
+                f"é IRREVERSÍVEL — ajuste pra valor seguro ou edite o cap "
+                f"_MAX_LOCK_RETENTION_DAYS deliberadamente.",
+                file=sys.stderr,
+            )
+            return 2
 
     source_dir = Path(source_dir)
     locals_ = list_local_backups(source_dir)
@@ -180,8 +243,10 @@ def sync(
 
     sc_label = storage_class or "(omitido)"
     provider = endpoint_url or "AWS S3"
+    lock_label = f"{lock_mode} {lock_retention_days}d" if lock_mode else "(desabilitado)"
     print(f"Provider: {provider}")
     print(f"Bucket:   s3://{bucket}/{prefix}  (storage class: {sc_label})")
+    print(f"Lock:     {lock_label}")
     print(f"Source:   {source_dir}  ({len(locals_)} arquivo(s) local)")
 
     remote_keys = list_remote_keys(client, bucket, prefix)
@@ -199,7 +264,10 @@ def sync(
             print(f"  [DRY-RUN] would upload {local.name} ({size_mb:.2f} MB)")
         else:
             print(f"  Upload {local.name} ({size_mb:.2f} MB) → {key}")
-            upload_file(client, local, bucket, key, storage_class)
+            upload_file(
+                client, local, bucket, key, storage_class,
+                lock_mode=lock_mode, lock_retention_days=lock_retention_days,
+            )
         uploaded += 1
 
     print(f"OK — {uploaded} enviado(s), {skipped} já presente(s).")
@@ -231,7 +299,17 @@ def main() -> int:
                         "(B2/OCI/R2/Wasabi/MinIO). Sem flag = AWS S3.")
     p.add_argument("--s3-retention-days", type=int,
                    help="Se passado, apaga objetos no bucket mais antigos que N dias. "
-                        "Sem flag, backups acumulam indefinidamente (default seguro).")
+                        "Sem flag, backups acumulam indefinidamente (default seguro). "
+                        "Atenção: arquivos com Object Lock ativo NÃO serão removidos "
+                        "(delete falha silencioso) até a retention expirar.")
+    p.add_argument("--lock-mode", choices=_VALID_LOCK_MODES,
+                   help="Override S3_BACKUP_LOCK_MODE. GOVERNANCE permite "
+                        "bypass com permissão; COMPLIANCE é IRREVERSÍVEL "
+                        "(nem suporte do provider apaga antes da data).")
+    p.add_argument("--lock-retention-days", type=int,
+                   help=f"Override S3_BACKUP_LOCK_RETENTION_DAYS. Cada upload "
+                        f"fica retido por N dias da hora do upload. "
+                        f"Cap interno: {_MAX_LOCK_RETENTION_DAYS}d.")
     p.add_argument("--dry-run", action="store_true",
                    help="Lista o que seria enviado/rotacionado, sem alterar nada.")
     args = p.parse_args()
@@ -243,6 +321,8 @@ def main() -> int:
         storage_class=args.storage_class,
         endpoint_url=args.endpoint_url,
         s3_retention_days=args.s3_retention_days,
+        lock_mode=args.lock_mode,
+        lock_retention_days=args.lock_retention_days,
         dry_run=args.dry_run,
     )
 
